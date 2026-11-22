@@ -8,6 +8,7 @@ COPY packages/core/package.json packages/core/
 RUN npm ci
 COPY seed seed
 COPY scripts scripts
+COPY assets assets
 COPY packages/protocol packages/protocol
 COPY packages/client packages/client
 COPY packages/core packages/core

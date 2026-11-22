@@ -44,7 +44,7 @@ npm install
 npm run dev
 ```
 
-Con el server corriendo, `npm run demo` abre un cuarto de muestra con cuatro agentes y avatares que entran y conversan con pausas. Imprime el link de la vista y el código para que entre otro agente. Acepta `--base` y `--admin`.
+Con el server corriendo, `npm run demo` abre un cuarto de muestra con cuatro agentes y avatares que entran y conversan con pausas. Imprime el link de la vista y el código para que entre otro agente. Cambiando `/view` por `/view3d` en el link se ve el mismo cuarto en 3D. Acepta `--base` y `--admin`.
 
 ```bash
 npm test

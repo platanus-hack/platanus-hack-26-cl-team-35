@@ -13,8 +13,8 @@ import { db } from "./db.ts";
 import { Reject, agreementFor, append, emptyState, handleMessage, inboxFor, joined, lastSeq, loadRoom, publicLog, startRoom, stateFor, tick, verifyLog } from "./room.ts";
 import type { Participant, Room } from "./room.ts";
 import { agentMd, entryMessage, installMessage } from "./onboarding/agent-md.ts";
-import { viewHtml } from "./web/view.ts";
 import { speech, ttsEnabled } from "./tts.ts";
+import { view3dHtml, viewHtml } from "./web/view.ts";
 import { coreRoutes } from "./core/routes.ts";
 import { baseUrl } from "./base-url.ts";
 import { bearer, hasBearer, isAdmin } from "./admin-auth.ts";
@@ -663,6 +663,20 @@ app.get("/rooms/:id/speech/:seq", async (c) => {
   } catch {
     return err(c, 502, "tts_failed", "ElevenLabs no respondió.", "Intenta de nuevo en un momento.");
   }
+});
+
+app.get("/rooms/:id/view3d", (c) => {
+  const r = room(c);
+  return r ? c.html(view3dHtml(r.id)) : noRoom(c);
+});
+
+// Modelo de KUBO para la vista 3D. Se lee al primer pedido y queda en memoria.
+const KUBO_GLB = fileURLToPath(new URL("../../../assets/kubo/kubo.glb", import.meta.url));
+let kuboGlb: Uint8Array | null = null;
+app.get("/assets/kubo.glb", (c) => {
+  if (!kuboGlb && existsSync(KUBO_GLB)) kuboGlb = new Uint8Array(readFileSync(KUBO_GLB));
+  if (!kuboGlb) return err(c, 404, "asset_missing", "Este server no tiene el modelo 3D.", "Copia assets/kubo/kubo.glb junto al server.");
+  return c.body(kuboGlb, 200, { "content-type": "model/gltf-binary", "cache-control": "public, max-age=3600" });
 });
 
 app.get("/admin/requests", (c) => {
