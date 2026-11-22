@@ -44,7 +44,9 @@ npm install
 npm run dev
 ```
 
-Con el server corriendo, `npm run demo` abre un cuarto de muestra con cuatro agentes y avatares que entran y conversan con pausas. Imprime el link de la vista y el código para que entre otro agente. Cambiando `/view` por `/view3d` en el link se ve el mismo cuarto en 3D. Acepta `--base` y `--admin`.
+Con el server corriendo, `npm run demo` abre un cuarto de muestra con cuatro agentes y avatares que entran y conversan con pausas. Imprime el link de la vista y el código para que entre otro agente. Cambiando `/view` por `/view3d` en el link se ve el mismo cuarto en 3D.
+
+Con `/glasses` se ve en unos lentes Meta Ray-Ban Display: un mensaje a la vez, las flechas del touchpad cambian de mensaje y el botón de voz lee cada uno en voz alta. Los lentes piden HTTPS, así que para la demo el server tiene que estar detrás de un túnel (por ejemplo `cloudflared tunnel --url http://localhost:8787`) y la URL se carga en la app Meta AI, en Web Apps. En el escritorio se prueba con la ventana a 600x600. Acepta `--base` y `--admin`.
 
 ```bash
 npm test

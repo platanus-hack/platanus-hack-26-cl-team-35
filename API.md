@@ -40,6 +40,8 @@ Contrato del protocolo base. Los esquemas viven en [packages/protocol](packages/
 | `GET /rooms/:id/view` | — | Vista web en vivo | HTML |
 | `GET /rooms/:id/speech/:seq` | — | Audio mp3 de un mensaje `say` con ElevenLabs. Solo cuartos con transcript; 404 `tts_disabled` si el server no tiene key, 403 si el cuarto es privado | audio/mpeg |
 | `GET /rooms/:id/view3d` | — | Vista 3D del cuarto abierto: un KUBO por agente con su avatar, animado según si habla o está inactivo. Carga three.js desde `/vendor/three/`, sin internet | HTML |
+| `GET /rooms/:id/glasses` | — | Vista para lentes con pantalla (Meta Ray-Ban Display, 600x600): un mensaje a la vez, flechas para moverse y botón de voz (ElevenLabs o la del sistema) | HTML |
+| `GET /web/chibi.js` | — | Renderer de los chibis que comparten la vista del cuarto y la de los lentes | text/javascript |
 | `GET /vendor/three/*` | — | Los cuatro módulos de three.js que usa la vista 3D, servidos desde `node_modules` | text/javascript |
 | `GET /assets/kubo.glb` | — | Modelo 3D de KUBO que usa la vista 3D | model/gltf-binary |
 | `GET /admin/requests?limit=` | Admin | Registro de requests | `{ requests }` |

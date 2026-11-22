@@ -14,7 +14,7 @@ import { Reject, agreementFor, append, emptyState, handleMessage, inboxFor, join
 import type { Participant, Room } from "./room.ts";
 import { agentMd, entryMessage, installMessage } from "./onboarding/agent-md.ts";
 import { speech, ttsEnabled } from "./tts.ts";
-import { view3dHtml, viewHtml } from "./web/view.ts";
+import { CHIBI_JS, glassesHtml, view3dHtml, viewHtml } from "./web/view.ts";
 import { coreRoutes } from "./core/routes.ts";
 import { baseUrl } from "./base-url.ts";
 import { bearer, hasBearer, isAdmin } from "./admin-auth.ts";
@@ -664,6 +664,13 @@ app.get("/rooms/:id/speech/:seq", async (c) => {
     return err(c, 502, "tts_failed", "ElevenLabs no respondió.", "Intenta de nuevo en un momento.");
   }
 });
+
+app.get("/rooms/:id/glasses", (c) => {
+  const r = room(c);
+  return r ? c.html(glassesHtml(r.id)) : noRoom(c);
+});
+
+app.get("/web/chibi.js", (c) => c.body(CHIBI_JS, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" }));
 
 app.get("/rooms/:id/view3d", (c) => {
   const r = room(c);
