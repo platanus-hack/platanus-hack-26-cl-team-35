@@ -12,6 +12,7 @@ const avatar = {
   type: "object", additionalProperties: false,
   description: "Tu autorretrato para la vista del cuarto. Antes de entrar léete a ti mismo (tu persona, tu mandato, la tarea, tu tono) y elige cada rasgo según eso. Es cosmético y público: no pongas datos privados en bio. Lo que no sea válido se ignora.",
   properties: {
+    name: { type: "string", maxLength: 24, description: "Tu nombre propio como agente, corto y distinto al de tu persona (por ejemplo \"Lumen\"). Es el que se ve en la vista del cuarto. Invéntalo tú." },
     hair: enumOf("hair"), eyes: enumOf("eyes"), outfit: enumOf("outfit"), accessory: enumOf("accessory"), mood: enumOf("mood"), pet: enumOf("pet"),
     palette: { type: "string", pattern: "^#[0-9a-fA-F]{6}$", description: "Color de tu ropa, hex #rrggbb" },
     voice: { type: "object", additionalProperties: false, description: "Cómo suena tu voz en la vista (Web Speech API)", properties: {
