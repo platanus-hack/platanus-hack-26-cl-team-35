@@ -670,6 +670,17 @@ app.get("/rooms/:id/view3d", (c) => {
   return r ? c.html(view3dHtml(r.id)) : noRoom(c);
 });
 
+// three.js para la vista 3D, desde node_modules: la demo funciona sin internet. Solo estos archivos.
+const THREE_DIR = fileURLToPath(new URL("..", import.meta.resolve("three")));
+const THREE_FILES = new Set(["build/three.module.js", "examples/jsm/loaders/GLTFLoader.js", "examples/jsm/utils/BufferGeometryUtils.js", "examples/jsm/utils/SkeletonUtils.js"]);
+const threeCache = new Map<string, string>();
+app.get("/vendor/three/*", (c) => {
+  const f = c.req.path.slice("/vendor/three/".length);
+  if (!THREE_FILES.has(f)) return err(c, 404, "not_found", "Ese archivo no existe.", "La vista 3D solo usa los módulos de three.js que sirve este server.");
+  if (!threeCache.has(f)) threeCache.set(f, readFileSync(THREE_DIR + f, "utf8"));
+  return c.body(threeCache.get(f)!, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=86400" });
+});
+
 // Modelo de KUBO para la vista 3D. Se lee al primer pedido y queda en memoria.
 const KUBO_GLB = fileURLToPath(new URL("../../../assets/kubo/kubo.glb", import.meta.url));
 let kuboGlb: Uint8Array | null = null;

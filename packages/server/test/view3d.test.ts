@@ -43,3 +43,18 @@ test("GET /assets/kubo.glb devuelve el modelo tal cual", async () => {
   assert.equal(r.headers.get("content-type"), "model/gltf-binary");
   assert.deepEqual(Buffer.from(await r.arrayBuffer()), readFileSync("assets/kubo/kubo.glb"));
 });
+
+test("three.js sale del propio server: la vista no depende de internet", async () => {
+  const html = readFileSync("packages/server/src/web/view3d.html", "utf8");
+  assert.ok(!/https?:\/\//.test(html.slice(html.indexOf("importmap"))), "el importmap no apunta a un CDN");
+  for (const f of ["build/three.module.js", "examples/jsm/loaders/GLTFLoader.js", "examples/jsm/utils/BufferGeometryUtils.js", "examples/jsm/utils/SkeletonUtils.js"]) {
+    const r = await fetch(`${BASE}/vendor/three/${f}`);
+    assert.equal(r.status, 200, f);
+    assert.match(r.headers.get("content-type") ?? "", /javascript/);
+    await r.arrayBuffer();
+  }
+  // Solo esos archivos: nada más de node_modules.
+  for (const f of ["package.json", "build/three.cjs", "..%2F..%2Fpackage.json", "examples/jsm/loaders/../../../package.json"]) {
+    assert.equal((await fetch(`${BASE}/vendor/three/${f}`)).status, 404, f);
+  }
+});

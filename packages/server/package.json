@@ -13,6 +13,7 @@
     "@agent-board/core": "*",
     "@agent-board/protocol": "*",
     "@hono/node-server": "^2.1.11",
-    "hono": "^4.13.19"
+    "hono": "^4.13.19",
+    "three": "0.170.0"
   }
 }
