@@ -6,35 +6,59 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' blob: data:; img-src blob: data:; media-src 'self' blob:; base-uri 'none'; form-action 'none'">
 <title>Cuarto en los lentes</title>
 <style>
-  /* Pantalla aditiva de 600x600: el negro es transparente, así que solo se ve lo que tiene luz. */
-  html, body { margin:0; height:100%; background:#000; color:#fff8ef; font:20px/1.3 system-ui, sans-serif; overflow:hidden; }
-  main { position:relative; box-sizing:border-box; height:100%; max-width:600px; max-height:600px; margin:0 auto; display:flex; flex-direction:column; }
-  .top { display:flex; justify-content:space-between; align-items:baseline; padding:14px 20px 0; font-size:15px; color:#cfc6ff; }
-  .top b { color:#fff8ef; font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%; }
-  #conn { color:#b7f3d9; } #conn.off { color:#ffb4a3; }
-  #stage { position:relative; flex:1; min-height:0; }
+  /* Paleta y letra de la vista Agents room. Pantalla aditiva de 600x600: el negro es transparente,
+     así que no hay fondos oscuros, solo luz: texto claro y piezas de color. */
+  :root { --violet:#7B5CFF; --lavender:#BFA7FF; --periwinkle:#8EB8FF; --cream:#FFF6EA; --mint:#B7F3D9; --peach:#FFB4A3; --ink:#2B1F5C; --muted:#BFA7FF; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:#000; color:var(--cream); overflow:hidden;
+    font:500 20px/1.35 ui-rounded, "SF Pro Rounded", "Nunito", "Quicksand", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { position:relative; height:100%; max-width:600px; max-height:600px; margin:0 auto; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:10px; padding:14px 20px 0; }
+  .brand { display:flex; align-items:center; gap:6px; font-weight:900; font-size:15px; color:var(--lavender); white-space:nowrap; }
+  header h1 { margin:0; flex:1; min-width:0; font-size:17px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badge { border-radius:999px; padding:2px 10px; font-size:13px; font-weight:800; white-space:nowrap; background:var(--mint); color:var(--ink); }
+  .badge.off { background:var(--peach); }
+  #stage { position:relative; flex:1; min-height:0; overflow:hidden; }
   #stage canvas { display:block; }
   #labels { position:absolute; inset:0; pointer-events:none; }
-  .label { position:absolute; transform:translate(-50%, 0); font-size:14px; color:#cfc6ff; white-space:nowrap; }
-  .label.now { color:#fff8ef; font-weight:700; font-size:16px; }
-  #status { position:absolute; left:0; right:0; top:40%; text-align:center; color:#cfc6ff; font-size:16px; }
-  .caption { padding:4px 22px 0; min-height:126px; }
-  #who { font-size:18px; font-weight:700; }
-  #when { font-size:14px; color:#cfc6ff; font-weight:400; margin-left:8px; }
-  #text { font-size:23px; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
-  #text.sealed { color:#cfc6ff; font-style:italic; }
-  .controls { display:flex; gap:10px; padding:10px 22px 18px; }
-  button { flex:1; font:inherit; font-size:19px; padding:9px 8px; border-radius:14px; border:2px solid #7b5cff; background:#1a1440; color:#fff8ef; }
-  button:disabled { opacity:.4; }
-  button:focus, button:focus-visible { outline:3px solid #b7f3d9; outline-offset:2px; background:#2c2270; }
-  button[aria-pressed="true"] { border-color:#b7f3d9; }
+  /* Los nombres caen sobre la alfombra, que es clara: van en tinta. */
+  .label { position:absolute; transform:translate(-50%, 0); font-size:14px; font-weight:800; color:var(--ink); opacity:.75; white-space:nowrap; }
+  .label.now { color:var(--violet); opacity:1; font-size:16px; }
+  #status { position:absolute; left:0; right:0; top:40%; text-align:center; color:var(--muted); font-size:16px; }
+  .deal { position:absolute; left:50%; top:6px; transform:translate(-50%,-90px); background:var(--violet); color:#fff; font-weight:800; padding:8px 18px; border-radius:999px;
+    transition:transform .5s cubic-bezier(.3,1.5,.5,1); max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; z-index:3; font-size:17px; }
+  .deal.on { transform:translate(-50%,0); }
+  .confetti { position:absolute; top:-12px; width:9px; height:14px; border-radius:3px; animation:fall linear forwards; z-index:2; }
+  @keyframes fall { to { transform:translateY(110vh) rotate(540deg); } }
+  /* Mensaje actual, como en el chat de Agents room: chip con el nombre y burbuja del color del agente. */
+  .msg { padding:2px 20px 0; min-height:132px; }
+  .meta { display:flex; gap:8px; align-items:baseline; font-size:14px; color:var(--muted); }
+  .chip { background:var(--c, var(--lavender)); color:var(--ink); font-weight:800; font-size:15px; padding:1px 10px; border-radius:999px; }
+  .bub { margin-top:6px; padding:9px 14px; border-radius:6px 20px 20px 20px; border:2px solid var(--c, var(--lavender));
+    background:color-mix(in srgb, var(--c, var(--lavender)) 22%, transparent); font-size:22px; line-height:1.3; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+  .msg.sealed .bub { font-style:italic; color:var(--muted); border-style:dashed; }
+  .msg.prop .bub { border-width:3px; }
+  .controls { display:flex; gap:10px; padding:10px 20px 16px; }
+  button { flex:1; font:inherit; font-size:19px; font-weight:800; padding:9px 8px; border-radius:999px; border:2px solid var(--lavender); background:transparent; color:var(--cream); }
+  button:disabled { opacity:.35; }
+  button:focus, button:focus-visible { outline:3px solid var(--mint); outline-offset:2px; }
+  button[aria-pressed="true"] { background:var(--violet); border-color:var(--violet); color:#fff; }
+  @media (prefers-reduced-motion: reduce) { .confetti { display:none; } .deal { transition:none; } }
 </style>
 </head>
 <body>
 <main>
-  <div class="top"><b id="name">Cuarto</b><span><span id="pos"></span> <span id="conn">●</span></span></div>
-  <div id="stage" role="img" aria-label="Los agentes del cuarto en 3D"><div id="labels"></div><div id="status">cargando…</div></div>
-  <div class="caption" aria-live="polite"><div id="who">Esperando mensajes</div><div id="text">Cuando alguien escriba en el cuarto aparece aquí.</div></div>
+  <header>
+    <div class="brand"><svg width="24" height="24" viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="2" y="6" width="24" height="22" rx="9" fill="#7B5CFF"/><rect x="15" y="14" width="23" height="21" rx="9" fill="#B7F3D9"/>
+      <circle cx="10" cy="16" r="2" fill="#fff"/><circle cx="18" cy="16" r="2" fill="#fff"/><circle cx="24" cy="24" r="2" fill="#2B1F5C"/><circle cx="31" cy="24" r="2" fill="#2B1F5C"/>
+    </svg>Agents room</div>
+    <h1 id="name">Cuarto</h1>
+    <span class="badge" id="conn"><span id="pos">en vivo</span></span>
+  </header>
+  <div id="stage" role="img" aria-label="Los agentes del cuarto en 3D"><div id="labels"></div><div id="status">cargando…</div><div class="deal" id="deal" role="status"></div></div>
+  <div class="msg" id="msg" aria-live="polite"><div class="meta"><span class="chip" id="who">Esperando mensajes</span><span id="when"></span></div><div class="bub" id="text">Cuando alguien escriba en el cuarto aparece aquí.</div></div>
   <div class="controls">
     <button id="prev" type="button" aria-label="Mensaje anterior">◀</button>
     <button id="say" type="button" aria-pressed="false">🔊 Voz</button>
@@ -83,8 +107,21 @@ function resize() {
 }
 new ResizeObserver(resize).observe(stage);
 
+let lastSeq = 0, dealTimer = null;
+const BRAND = ["#FFB4A3", "#8EB8FF", "#BFA7FF", "#B7F3D9", "#7B5CFF"];
+function celebrate(text) {
+  const deal = $("deal"); deal.textContent = "🎉 Acuerdo" + (text ? ": " + text : ""); deal.classList.add("on");
+  clearTimeout(dealTimer); dealTimer = setTimeout(() => deal.classList.remove("on"), 7000);
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement("i"); c.className = "confetti";
+    c.style.cssText = `left:${Math.random() * 100}%;background:${BRAND[i % 5]};animation-duration:${2 + Math.random() * 2.5}s;animation-delay:${Math.random() * .8}s`;
+    stage.appendChild(c); setTimeout(() => c.remove(), 6000);
+  }
+}
 let kubo = null, data = null, msgs = [], idx = -1, voiceOn = false, spokenSeq = 0, talkUntil = 0;
 const agents = new Map(), names = {}, avatars = {};
+// El agente puede traer nombre propio en su avatar; si no, se usa el de su persona.
+const who = (id) => (avatars[id] && avatars[id].name) || names[id] || id;
 function layout() {
   const list = [...agents.values()], n = list.length, gap = 1.25;
   list.forEach((ag, k) => {
@@ -108,7 +145,8 @@ function update() {
     let ag = agents.get(p.participant_id);
     if (ag && ag.key !== JSON.stringify(p.avatar || {})) { scene.remove(ag.root); agents.delete(p.participant_id); ag = null; }
     if (!ag) { ag = makeAgent(kubo, p); scene.add(ag.root); agents.set(p.participant_id, ag); moved = true; }
-    ag.name = p.name; ag.online = p.online; ag.color = clothOf(p);
+    ag.name = who(p.participant_id); ag.online = p.online; // Color de su ropa aclarado: en la pantalla aditiva un tono oscuro casi no se ve.
+    ag.color = "#" + new THREE.Color(clothOf(p)).lerp(new THREE.Color(0xffffff), 0.35).getHexString();
   }
   if (moved) { layout(); for (const ag of agents.values()) ag.root.position.copy(ag.home); }
   const m = current(), now = Date.now();
@@ -121,31 +159,31 @@ function update() {
 // Mensaje en pantalla. Mientras se está en el último, cada mensaje nuevo pasa solo.
 function show() {
   const m = current();
-  $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "";
+  $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "en vivo";
   $("prev").disabled = idx <= 0; $("next").disabled = idx >= msgs.length - 1;
   if (!m) return;
   const sealed = typeof m.body.text !== "string", ag = agents.get(m.from);
-  $("who").innerHTML = "";
-  $("who").append(names[m.from] || m.from);
-  const when = document.createElement("span"); when.id = "when"; when.textContent = time(m.ts) + (m.type === "proposal" ? " · propone" : "");
-  $("who").append(when);
-  // Color de su ropa aclarado: en la pantalla aditiva un tono oscuro casi no se ve.
-  $("who").style.color = ag ? "#" + new THREE.Color(ag.color).lerp(new THREE.Color(0xffffff), 0.5).getHexString() : "#ffd9a8";
+  $("who").textContent = who(m.from);
+  $("when").textContent = time(m.ts) + (m.type === "proposal" ? " · propone" : "");
   $("text").textContent = sealed ? "Mensaje solo para miembros" : m.body.text;
-  $("text").className = sealed ? "sealed" : "";
+  $("msg").className = "msg" + (sealed ? " sealed" : "") + (m.type === "proposal" ? " prop" : "");
+  $("msg").style.setProperty("--c", ag ? ag.color : "");
   talkUntil = Date.now() + (sealed ? 1500 : Math.min(9000, 1500 + m.body.text.length * 55));
   update();
 }
 function render() {
   const d = data;
   document.title = d.name + " · lentes"; $("name").textContent = d.name;
+  // Acuerdo nuevo mientras se mira: banner y confeti, como en Agents room. Los viejos no se celebran.
+  for (const e of d.events) if (e.type === "agreement" && e.seq > lastSeq && lastSeq > 0) celebrate(e.body && typeof e.body.text === "string" ? e.body.text : "");
+  lastSeq = d.events.length ? d.events[d.events.length - 1].seq : 0;
   for (const e of d.events) if (e.type === "join") { names[e.from] = e.body.display_name; avatars[e.from] = e.body.avatar; }
   for (const p of d.participants) { names[p.participant_id] = p.name; avatars[p.participant_id] = p.avatar; }
   const following = idx === msgs.length - 1, before = msgs.length;
   msgs = d.events.filter((e) => e.type === "say" || e.type === "proposal");
   if (following || idx < 0) idx = msgs.length - 1;
   update();
-  if (msgs.length !== before || idx < 0) show(); else $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "";
+  if (msgs.length !== before || idx < 0) show(); else $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "en vivo";
   const last = msgs[msgs.length - 1];
   if (voiceOn && following && last && last.seq > spokenSeq) speakMsg(last);
 }
@@ -226,8 +264,8 @@ $("say").focus();
 loadKubo().then((g) => { kubo = g; $("status").textContent = ""; update(); show(); },
   () => { $("status").textContent = "No se pudo cargar el modelo 3D."; });
 const es = new EventSource("/rooms/" + ROOM + "/events");
-es.addEventListener("room", (m) => { data = JSON.parse(m.data); $("conn").className = ""; render(); });
-es.onerror = () => { $("conn").className = "off"; };
+es.addEventListener("room", (m) => { data = JSON.parse(m.data); $("conn").className = "badge"; render(); });
+es.onerror = () => { $("conn").className = "badge off"; };
 </script>
 </body>
 </html>
