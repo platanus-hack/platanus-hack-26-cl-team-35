@@ -9,7 +9,7 @@
   :root { color-scheme: light dark; --bg:#f7f3fb; --fg:#2d3160; --muted:#6b6f93; }
   @media (prefers-color-scheme: dark) { :root { --bg:#1b1a22; --fg:#ece9f7; --muted:#a6a3bd; } }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
-  header { position:fixed; top:0; left:0; right:0; padding:12px 16px; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; z-index:2; pointer-events:none; }
+  header { position:fixed; top:0; left:0; right:0; padding:12px 140px 12px 16px; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; z-index:2; pointer-events:none; }
   header h1 { margin:0; font-size:18px; }
   header a, header span { pointer-events:auto; color:var(--muted); font-size:13px; }
   #stage { position:fixed; inset:0; }
@@ -17,6 +17,23 @@
   .bubble { position:absolute; transform:translate(-50%, -100%); background:#fffdf8; color:#2d3160; border:1.5px solid #2d3160; border-radius:10px; padding:3px 8px; font-size:12px; max-width:220px; white-space:normal; box-shadow:0 2px 0 rgba(45,49,96,.15); }
   .bubble b { font-weight:600; }
   #status { position:fixed; bottom:12px; left:16px; color:var(--muted); font-size:12px; }
+  /* Historial: panel transparente que entra desde la derecha sobre el cuarto. */
+  #toggle { position:fixed; top:10px; right:16px; z-index:4; border:1px solid rgba(45,49,96,.25); background:rgba(255,253,248,.7); color:#2d3160; border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  #toggle:focus-visible, #close:focus-visible { outline:2px solid #7b5cff; outline-offset:2px; }
+  #panel { position:fixed; top:0; right:0; bottom:0; width:min(380px, 100vw); z-index:3; display:flex; flex-direction:column; background:rgba(255,253,248,.55); color:#2d3160; border-left:1px solid rgba(45,49,96,.15); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); transform:translateX(100%); transition:transform .25s ease; visibility:hidden; }
+  #panel.open { transform:none; visibility:visible; }
+  @media (prefers-reduced-motion: reduce) { #panel { transition:none; } }
+  @media (prefers-color-scheme: dark) { #panel { background:rgba(27,26,34,.55); color:#ece9f7; border-left-color:rgba(255,255,255,.12); } #toggle { background:rgba(27,26,34,.6); color:#ece9f7; border-color:rgba(255,255,255,.2); } }
+  #panel .head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px; }
+  #panel h2 { margin:0; font-size:15px; }
+  #close { border:0; background:transparent; color:inherit; font-size:20px; line-height:1; cursor:pointer; padding:4px 8px; border-radius:6px; }
+  #log { overflow-y:auto; padding:4px 16px 16px; display:flex; flex-direction:column; gap:8px; }
+  #log .sys { font-size:12px; opacity:.7; text-align:center; }
+  #log .msg { background:rgba(255,255,255,.55); border-radius:10px; padding:6px 10px; }
+  @media (prefers-color-scheme: dark) { #log .msg { background:rgba(255,255,255,.08); } }
+  #log .msg .t { font-size:11px; opacity:.6; margin-left:6px; }
+  #log .msg .text { white-space:pre-wrap; overflow-wrap:anywhere; }
+  #log .sealed .text { font-style:italic; opacity:.7; }
 </style>
 </head>
 <body>
@@ -24,6 +41,11 @@
 <div id="stage" role="img" aria-label="Vista 3D del cuarto con sus agentes"></div>
 <div id="bubbles"></div>
 <div id="status">cargando…</div>
+<button id="toggle" type="button" aria-expanded="false" aria-controls="panel">Conversación</button>
+<aside id="panel" aria-label="Historial de la conversación">
+  <div class="head"><h2>Conversación</h2><button id="close" type="button" aria-label="Cerrar historial">×</button></div>
+  <div id="log" aria-live="polite"><div class="sys">Sin mensajes todavía.</div></div>
+</aside>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
@@ -73,10 +95,19 @@ const rug = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.02, 2), mat(PAL.rug)); r
 const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.4, N), mat(PAL.wallL)); wallL.position.set(-N / 2 - 0.075, 1.2, 0); scene.add(wallL);
 const wallR = new THREE.Mesh(new THREE.BoxGeometry(N, 2.4, 0.15), mat(PAL.wallR)); wallR.position.set(0, 1.2, -N / 2 - 0.075); scene.add(wallR);
 
+// El cuarto llena la pantalla: se proyectan sus esquinas y el encuadre se ajusta a ellas.
+const CORNERS = [];
+for (const x of [-N / 2 - 0.15, N / 2]) for (const y of [0, 2.4]) for (const z of [-N / 2 - 0.15, N / 2]) CORNERS.push(new THREE.Vector3(x, y, z));
+camera.updateMatrixWorld();
+const view = CORNERS.map((c) => c.clone().applyMatrix4(camera.matrixWorldInverse));
+const box = { x0: Math.min(...view.map((v) => v.x)), x1: Math.max(...view.map((v) => v.x)), y0: Math.min(...view.map((v) => v.y)), y1: Math.max(...view.map((v) => v.y)) };
 function resize() {
-  const w = innerWidth, h = innerHeight, size = 4.6, k = w / h;
+  const w = innerWidth, h = innerHeight, k = w / h, pad = 1.04;
   renderer.setSize(w, h);
-  Object.assign(camera, k > 1 ? { left: -size * k, right: size * k, top: size, bottom: -size } : { left: -size, right: size, top: size / k, bottom: -size / k });
+  const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+  let hw = (box.x1 - box.x0) / 2 * pad, hh = (box.y1 - box.y0) / 2 * pad;
+  if (hw / hh > k) hh = hw / k; else hw = hh * k;
+  Object.assign(camera, { left: cx - hw, right: cx + hw, top: cy + hh, bottom: cy - hh });
   camera.updateProjectionMatrix();
 }
 addEventListener("resize", resize); resize();
@@ -117,6 +148,44 @@ function play(ag, name) {
   if (ag.state && ag.actions[ag.state]) ag.actions[ag.state].fadeOut(0.3);
   ag.state = name;
   return next;
+}
+
+// Historial: mismo contenido que la vista 2D, en corto. Solo se rehace cuando llegan eventos nuevos.
+const panel = $("panel"), toggle = $("toggle");
+function setPanel(open) {
+  panel.classList.toggle("open", open); toggle.setAttribute("aria-expanded", String(open)); toggle.hidden = open;
+  if (open) { $("log").scrollTop = $("log").scrollHeight; $("close").focus(); } else toggle.focus();
+}
+toggle.onclick = () => setPanel(!panel.classList.contains("open"));
+$("close").onclick = () => setPanel(false);
+addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.classList.contains("open")) setPanel(false); });
+// Deslizar a la derecha cierra el panel en pantallas táctiles.
+let touchX = null;
+panel.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+panel.addEventListener("touchend", (e) => { if (touchX != null && e.changedTouches[0].clientX - touchX > 60) setPanel(false); touchX = null; });
+const time = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+let logKey = "";
+function renderLog(d) {
+  const key = d.events.length + ":" + (d.events.length ? d.events[d.events.length - 1].seq : 0);
+  if (key === logKey) return;
+  logKey = key;
+  const names = {};
+  for (const e of d.events) if (e.type === "join") names[e.from] = e.body && e.body.display_name;
+  for (const p of d.participants) names[p.participant_id] = p.name;
+  const who = (id) => esc(names[id] || id);
+  const out = [];
+  for (const e of d.events) {
+    const b = e.body || {}, sealed = b.hash && b.text === undefined;
+    if (e.type === "say") out.push('<div class="msg' + (sealed ? " sealed" : "") + '"><b>' + who(e.from) + "</b>" + (e.to && e.to !== "room" ? " → " + who(e.to) : "") + '<span class="t">' + time(e.ts) + '</span><div class="text">' + (sealed ? "mensaje solo para miembros" : esc(b.text)) + "</div></div>");
+    else if (e.type === "proposal") out.push('<div class="msg' + (sealed ? " sealed" : "") + '"><b>' + who(e.from) + "</b> propone" + '<span class="t">' + time(e.ts) + '</span><div class="text">' + (sealed ? "propuesta solo para miembros" : esc(b.text)) + "</div></div>");
+    else if (e.type === "agreement") out.push('<div class="sys"><b>Acuerdo:</b> ' + (sealed ? "(solo para miembros)" : esc(b.text)) + "</div>");
+    else if (e.type === "join") out.push('<div class="sys">Entró <b>' + who(e.from) + "</b> · " + time(e.ts) + "</div>");
+    else if (e.type === "leave") out.push('<div class="sys"><b>' + who(e.from) + "</b> salió · " + time(e.ts) + "</div>");
+    else if (e.type === "room_closed") out.push('<div class="sys"><b>El cuarto se cerró</b> · ' + time(e.ts) + "</div>");
+  }
+  const log = $("log"), atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 40;
+  log.innerHTML = out.join("") || '<div class="sys">Sin mensajes todavía.</div>';
+  if (atBottom) log.scrollTop = log.scrollHeight;
 }
 
 let data = null;
@@ -169,7 +238,7 @@ renderer.setAnimationLoop(() => {
 new GLTFLoader().load("/assets/kubo.glb", (g) => { kubo = g; $("status").textContent = ""; update(); },
   undefined, () => { $("status").textContent = "No se pudo cargar el modelo 3D. La vista 2D sigue disponible."; });
 const es = new EventSource("/rooms/" + ROOM + "/events");
-es.addEventListener("room", (m) => { data = JSON.parse(m.data); update(); });
+es.addEventListener("room", (m) => { data = JSON.parse(m.data); renderLog(data); update(); });
 es.onerror = () => { $("status").textContent = "reconectando…"; };
 es.onopen = () => { if ($("status").textContent === "reconectando…") $("status").textContent = ""; };
 </script>
