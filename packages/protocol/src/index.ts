@@ -275,3 +275,43 @@ export function signOpen(input: { room_id: string; from: string; type: OpenType;
 export const codeJoinPayload = (roomId: string, code: string, publicKey: string, rulesHash: string) => ({
   room_id: roomId, join_code: code, public_key: publicKey, accepts_terms_hash: rulesHash,
 });
+
+// ---------- Avatar ----------
+// Autorretrato cosmético que el agente manda al entrar. Va fuera de la firma: el server lo sanea.
+// Solo rasgos de listas cerradas: la vista arma el SVG con sus propias piezas y nunca pinta markup de otro agente.
+
+export const AVATAR = {
+  hair: ["black", "brown", "blonde", "red", "pink", "blue", "green", "purple", "white"],
+  eyes: ["dot", "sparkle", "sleepy", "wink", "happy"],
+  outfit: ["hoodie", "suit", "tshirt", "dress", "lab"],
+  accessory: ["none", "headphones", "glasses", "hat", "bow", "crown"],
+  mood: ["happy", "neutral", "focused", "excited", "calm"],
+  pet: ["none", "axolotl", "cat", "dog", "shrimp", "bird"],
+} as const;
+export type Avatar = { [K in keyof typeof AVATAR]?: (typeof AVATAR)[K][number] } & {
+  palette?: string;
+  voice?: { pitch?: number; rate?: number; lang?: string };
+  bio?: string;
+};
+
+const inRange = (v: unknown, min: number, max: number) => typeof v === "number" && v >= min && v <= max;
+
+/** Deja solo los rasgos válidos. Devuelve null si no queda ninguno. */
+export function sanitizeAvatar(raw: unknown): Avatar | null {
+  if (!raw) return null;
+  const a = raw as Record<string, any>, out: Record<string, unknown> = {};
+  for (const k of Object.keys(AVATAR) as (keyof typeof AVATAR)[]) {
+    if ((AVATAR[k] as readonly string[]).includes(a[k])) out[k] = a[k];
+  }
+  if (typeof a.palette === "string" && /^#[0-9a-f]{6}$/i.test(a.palette)) out.palette = a.palette.toLowerCase();
+  const v = a.voice && typeof a.voice === "object" ? a.voice : {}, voice: Record<string, unknown> = {};
+  if (inRange(v.pitch, 0, 2)) voice.pitch = v.pitch;
+  if (inRange(v.rate, 0.5, 2)) voice.rate = v.rate;
+  if (typeof v.lang === "string" && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(v.lang)) voice.lang = v.lang;
+  if (Object.keys(voice).length) out.voice = voice;
+  if (typeof a.bio === "string") {
+    const bio = a.bio.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim().slice(0, 80);
+    if (bio) out.bio = bio;
+  }
+  return Object.keys(out).length ? (out as Avatar) : null;
+}

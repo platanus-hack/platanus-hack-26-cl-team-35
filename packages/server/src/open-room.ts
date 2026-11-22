@@ -2,7 +2,7 @@
 // Cada agente entra con un código, escribe cuando lo necesita y cierra acuerdos con propuestas.
 import { randomBytes } from "node:crypto";
 import { OPEN_BODIES, OPEN_TYPES, OpenRules, TS_WINDOW_MS, hashOf, openPayload, verifyValue } from "@agent-board/protocol";
-import type { OpenType } from "@agent-board/protocol";
+import type { Avatar, OpenType } from "@agent-board/protocol";
 import { db } from "./db.ts";
 import { MEMBERS_ONLY, Reject, append, joined } from "./room.ts";
 import type { Participant, Room } from "./room.ts";
@@ -35,21 +35,26 @@ export function roomForCode(code: string): { id: string } | undefined {
   return db.prepare("SELECT id FROM rooms WHERE join_code = ? AND join_code_expires > ?").get(code.trim().toUpperCase(), now()) as { id: string } | undefined;
 }
 
-export function createOpenRoom(input: { name: string; purpose: string; context?: string; transcript?: boolean; owner: string | null; creator?: { public_key: string; display_name: string; platform: string } }) {
+export function createOpenRoom(input: { name: string; purpose: string; context?: string; transcript?: boolean; owner: string | null; creator?: { public_key: string; display_name: string; platform: string; avatar?: Avatar | null } }) {
   const rules = OpenRules.parse({ kind: "open", purpose: input.purpose, context: input.context ?? "", transcript: !!input.transcript });
   const id = `r_${rid(4)}`, t = now(), code = newCode();
   db.prepare("INSERT INTO rooms (id, name, rules, rules_hash, phase, phase_started, phase_deadline, state, created_at, owner_account, join_code, join_code_expires) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
     .run(id, input.name, JSON.stringify(rules), hashOf(rules), "open", t, null, JSON.stringify({ proposals: [] } satisfies OpenState), t, input.owner, code, new Date(Date.now() + CODE_TTL_MS).toISOString());
   append(id, { type: "room_created", from: "server", body: { name: input.name, kind: "open", purpose: rules.purpose, transcript: rules.transcript, rules_hash: hashOf(rules) } });
-  const creator = input.creator && addParticipant(id, input.creator.display_name, input.creator.platform, input.creator.public_key, "owner");
+  const creator = input.creator && addParticipant(id, input.creator.display_name, input.creator.platform, input.creator.public_key, "owner", input.creator.avatar);
   return { id, rules, rules_hash: hashOf(rules), code, expires: new Date(Date.now() + CODE_TTL_MS).toISOString(), creator };
 }
 
 /** Da de alta (o de vuelta) a un participante por su llave. La misma llave siempre es el mismo participante. */
-export function addParticipant(roomId: string, displayName: string, platform: string, publicKey: string, via: "code" | "owner") {
+/** `avatar` ya viene saneado (sanitizeAvatar). */
+export function addParticipant(roomId: string, displayName: string, platform: string, publicKey: string, via: "code" | "owner", avatar: Avatar | null = null) {
   const existing = db.prepare("SELECT * FROM participants WHERE room_id = ? AND public_key = ?").get(roomId, publicKey) as Participant | undefined;
   if ((existing as any)?.removed_at) throw new Reject("removed", "Quien administra el cuarto te sacó.", "Habla con tu persona: para volver, quien creó el cuarto tiene que dejarte entrar.", 403);
-  if (existing?.joined_at && existing.token) return existing;
+  const av = avatar ? JSON.stringify(avatar) : null;
+  if (existing?.joined_at && existing.token) {
+    if (av) db.prepare("UPDATE participants SET avatar = ? WHERE room_id = ? AND id = ?").run(av, roomId, existing.id);
+    return existing;
+  }
   const r = db.prepare("SELECT rules, phase FROM rooms WHERE id = ?").get(roomId) as { rules: string; phase: string };
   if (r.phase === "closed") throw new Reject("room_closed", "El cuarto está cerrado.", "Pídele a quien lo creó que abra otro.", 409);
   if (joined(roomId).length >= (JSON.parse(r.rules) as OpenRules).max_participants) {
@@ -58,15 +63,15 @@ export function addParticipant(roomId: string, displayName: string, platform: st
   const name = displayName.slice(0, 60), plat = platform.slice(0, 30), token = `tok_${rid(16)}`, t = now();
   let id = existing?.id;
   if (existing) {
-    db.prepare("UPDATE participants SET token = ?, display_name = ?, platform = ?, joined_at = ?, last_seen = ? WHERE room_id = ? AND id = ?").run(token, name, plat, t, t, roomId, existing.id);
+    db.prepare("UPDATE participants SET token = ?, display_name = ?, platform = ?, avatar = ?, joined_at = ?, last_seen = ? WHERE room_id = ? AND id = ?").run(token, name, plat, av, t, t, roomId, existing.id);
   } else {
     const slug = name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agente";
     id = `p_${slug}`;
     for (let n = 2; db.prepare("SELECT 1 FROM participants WHERE room_id = ? AND id = ?").get(roomId, id); n++) id = `p_${slug}-${n}`;
-    db.prepare("INSERT INTO participants (id, room_id, invite, label, token, display_name, platform, public_key, joined_at, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?)")
-      .run(id, roomId, `inv_${rid(8)}`, id.slice(2), token, name, plat, publicKey, t, t);
+    db.prepare("INSERT INTO participants (id, room_id, invite, label, token, display_name, platform, public_key, joined_at, last_seen, avatar) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+      .run(id, roomId, `inv_${rid(8)}`, id.slice(2), token, name, plat, publicKey, t, t, av);
   }
-  append(roomId, { type: "join", from: id!, signed: true, body: { display_name: name, platform: plat, public_key: publicKey, via } });
+  append(roomId, { type: "join", from: id!, signed: true, body: { display_name: name, platform: plat, public_key: publicKey, via, ...(avatar ? { avatar } : {}) } });
   return db.prepare("SELECT * FROM participants WHERE room_id = ? AND id = ?").get(roomId, id) as Participant;
 }
 
@@ -106,8 +111,8 @@ export function closeOpen(r: Room, by: string) {
 const online = (p: Participant & { last_seen?: string | null }) => !!p.last_seen && Date.now() - Date.parse(p.last_seen) < ONLINE_MS;
 
 export function membersOf(roomId: string) {
-  return (joined(roomId) as (Participant & { last_seen: string | null })[]).map((p) => ({
-    participant_id: p.id, name: p.display_name, platform: p.platform, online: online(p), last_seen: p.last_seen,
+  return (joined(roomId) as (Participant & { last_seen: string | null; avatar: string | null })[]).map((p) => ({
+    participant_id: p.id, name: p.display_name, platform: p.platform, online: online(p), last_seen: p.last_seen, avatar: p.avatar ? JSON.parse(p.avatar) as Avatar : null,
   }));
 }
 

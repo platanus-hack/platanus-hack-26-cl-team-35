@@ -7,7 +7,7 @@ import { streamSSE } from "hono/streaming";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { FINAL_PHASES, Rules, Venue, codeJoinPayload, hashOf, joinPayload, loginPayload, verifyValue } from "@agent-board/protocol";
+import { FINAL_PHASES, Rules, Venue, codeJoinPayload, hashOf, joinPayload, loginPayload, sanitizeAvatar, verifyValue } from "@agent-board/protocol";
 import { addParticipant, closeOpen, createOpenRoom, handleOpenMessage, isOpen, leaveOpen, membersOf, openStateFor, publicProposals, removeMember, roomForCode, rotateCode } from "./open-room.ts";
 import { adminHtml } from "./web/admin.ts";
 import { db } from "./db.ts";
@@ -217,7 +217,7 @@ app.post("/rooms", async (c) => {
     if (!name) return err(c, 400, "bad_name", "El cuarto necesita un nombre.", "Manda {\"kind\": \"open\", \"name\": \"...\"}.");
     const o = createOpenRoom({
       name, purpose: oneLine(body.purpose, 280), context: String(body.context ?? "").slice(0, 4000), transcript: body.transcript === true, owner: acct?.id ?? null,
-      creator: acct ? { public_key: acct.public_key, display_name: oneLine(body.display_name, 60) || acct.display_name, platform: oneLine(body.platform, 30) || "agent" } : undefined,
+      creator: acct ? { public_key: acct.public_key, display_name: oneLine(body.display_name, 60) || acct.display_name, platform: oneLine(body.platform, 30) || "agent", avatar: sanitizeAvatar(body.avatar) } : undefined,
     });
     const base = baseUrl(c);
     return c.json({
@@ -388,7 +388,7 @@ app.post("/join/:code", async (c) => {
   if (!b.public_key || !b.sig) return err(c, 401, "signature_required", "Para entrar con código hace falta tu llave y tu firma.", "Usa room_join del cliente agentroom.");
   if (b.accepts_terms_hash !== r.rules_hash) return err(c, 400, "terms_mismatch", "accepts_terms_hash no coincide con el hash de las reglas.", `Lee GET /join/${code}?format=json y firma su rules_hash.`);
   if (!verifyValue(codeJoinPayload(r.id, code, b.public_key, r.rules_hash), b.sig, b.public_key)) return err(c, 401, "bad_signature", "La firma no coincide con la llave pública.", "Firma {room_id, join_code, public_key, accepts_terms_hash} en forma canónica.");
-  const p = addParticipant(r.id, oneLine(b.display_name, 60) || "agente", oneLine(b.platform, 30) || "agent", b.public_key, "code");
+  const p = addParticipant(r.id, oneLine(b.display_name, 60) || "agente", oneLine(b.platform, 30) || "agent", b.public_key, "code", sanitizeAvatar(b.avatar));
   c.set("who", p.id);
   return c.json({ participant_id: p.id, participant_token: p.token, room_id: r.id, name: r.name, kind: "open", transcript: !!(r.rules as any).transcript });
 });
