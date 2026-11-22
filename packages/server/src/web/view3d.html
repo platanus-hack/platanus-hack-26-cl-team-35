@@ -10,7 +10,9 @@
   @media (prefers-color-scheme: dark) { :root { --bg:#1b1a22; --fg:#ece9f7; --muted:#a6a3bd; } }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
   header { position:fixed; top:0; left:0; right:0; padding:12px 140px 12px 16px; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; z-index:2; pointer-events:none; }
+  header { color:#2d3160; background:linear-gradient(rgba(255,253,248,.75), rgba(255,253,248,0)); }
   header h1 { margin:0; font-size:18px; }
+  header a, header span { color:#4b4f7a !important; }
   header a, header span { pointer-events:auto; color:var(--muted); font-size:13px; }
   #stage { position:fixed; inset:0; }
   #bubbles { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
@@ -65,11 +67,11 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<
 // Misma paleta por cuarto y mismos lugares que la vista 2D.
 const seed = (id) => [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 const PALETTES = [
-  { wallL:"#8b9be0", wallR:"#7383cc", floor:["#f6c3a6", "#efb390"], rug:"#7fc9c4" },
-  { wallL:"#7fb59a", wallR:"#6a9f85", floor:["#ecd9ad", "#dfc796"], rug:"#e8907a" },
-  { wallL:"#4b56a0", wallR:"#3d4789", floor:["#e2b9a4", "#d4a892"], rug:"#f0bf6a" },
-  { wallL:"#b59bd8", wallR:"#9f84c6", floor:["#f7e2c6", "#efd3b0"], rug:"#e8907a" },
-  { wallL:"#7fc9c4", wallR:"#68b3ae", floor:["#f7e2c6", "#f0d0a8"], rug:"#f2a99a" },
+  { floor:["#f6c3a6", "#efb390"], rug:"#7fc9c4" },
+  { floor:["#ecd9ad", "#dfc796"], rug:"#e8907a" },
+  { floor:["#e2b9a4", "#d4a892"], rug:"#f0bf6a" },
+  { floor:["#f7e2c6", "#efd3b0"], rug:"#e8907a" },
+  { floor:["#f7e2c6", "#f0d0a8"], rug:"#f2a99a" },
 ];
 const PAL = PALETTES[seed(ROOM) % PALETTES.length];
 const HAIR = { black:"#2e2b3f", brown:"#7a4b33", blonde:"#efc777", red:"#c4563c", pink:"#f39aae", blue:"#6f8fe0", green:"#5fae8f", purple:"#9c7ad6", white:"#efe6dc" };
@@ -87,17 +89,20 @@ camera.position.set(10, 6.5, 10); camera.lookAt(0, 0.6, 0);
 scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfee, 2.2));
 const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(4, 8, 6); scene.add(sun);
 const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 });
-for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-  const t = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.1, 0.98), mat(PAL.floor[(i + j) % 2]));
-  t.position.set(i - N / 2 + 0.5, -0.05, j - N / 2 + 0.5); scene.add(t);
-}
-const rug = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.02, 2), mat(PAL.rug)); rug.position.set(0.2, 0.01, 0.4); scene.add(rug);
-const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.4, N), mat(PAL.wallL)); wallL.position.set(-N / 2 - 0.075, 1.2, 0); scene.add(wallL);
-const wallR = new THREE.Mesh(new THREE.BoxGeometry(N, 2.4, 0.15), mat(PAL.wallR)); wallR.position.set(0, 1.2, -N / 2 - 0.075); scene.add(wallR);
+// Piso sin límites: un plano grande con baldosas en una textura de 2x2 que se repite. Sin muros.
+const tiles = document.createElement("canvas"); tiles.width = tiles.height = 128;
+const tc = tiles.getContext("2d");
+for (let k = 0; k < 4; k++) { tc.fillStyle = PAL.floor[(k + (k >> 1)) % 2]; tc.fillRect((k % 2) * 64, (k >> 1) * 64, 64, 64); }
+tc.strokeStyle = "rgba(45,49,96,.12)"; tc.lineWidth = 2; tc.strokeRect(0, 0, 128, 128); tc.beginPath(); tc.moveTo(64, 0); tc.lineTo(64, 128); tc.moveTo(0, 64); tc.lineTo(128, 64); tc.stroke();
+const tex = new THREE.CanvasTexture(tiles);
+tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(100, 100); tex.anisotropy = 8;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const rug = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.02, 2), mat(PAL.rug)); rug.position.set(0.2, 0.011, 0.4); scene.add(rug);
 
 // El cuarto llena la pantalla: se proyectan sus esquinas y el encuadre se ajusta a ellas.
 const CORNERS = [];
-for (const x of [-N / 2 - 0.15, N / 2]) for (const y of [0, 2.4]) for (const z of [-N / 2 - 0.15, N / 2]) CORNERS.push(new THREE.Vector3(x, y, z));
+for (const x of [-N / 2, N / 2]) for (const y of [0, 1.8]) for (const z of [-N / 2, N / 2]) CORNERS.push(new THREE.Vector3(x, y, z));
 camera.updateMatrixWorld();
 const view = CORNERS.map((c) => c.clone().applyMatrix4(camera.matrixWorldInverse));
 const box = { x0: Math.min(...view.map((v) => v.x)), x1: Math.max(...view.map((v) => v.x)), y0: Math.min(...view.map((v) => v.y)), y1: Math.max(...view.map((v) => v.y)) };
