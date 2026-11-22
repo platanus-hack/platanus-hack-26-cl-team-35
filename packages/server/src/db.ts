@@ -87,6 +87,7 @@ for (const sql of [
   "ALTER TABLE participants ADD COLUMN last_seen TEXT",
   "ALTER TABLE participants ADD COLUMN removed_at TEXT",
   "ALTER TABLE events ADD COLUMN salt TEXT",
+  "ALTER TABLE participants ADD COLUMN avatar TEXT",
 ]) {
   try { db.exec(sql); } catch { /* ya existe */ }
 }

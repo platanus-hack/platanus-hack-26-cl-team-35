@@ -130,24 +130,24 @@ async function register(base: string, room_id: string, invite: string) {
 const CODE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
 
 /** Entra con el código de un cuarto abierto: lee sus reglas, firma su hash y entra. */
-async function joinByCode(base: string, code: string) {
+async function joinByCode(base: string, code: string, avatar?: unknown) {
   const m = mandate(), k = keys();
   const rules = await http(base, "GET", `/join/${code}?format=json`);
   const j = await http(base, "POST", `/join/${code}`, {
-    body: { display_name: m.display_name, platform: m.platform, public_key: k.public_key, accepts_terms_hash: rules.rules_hash, sig: signValue(codeJoinPayload(rules.room_id, code, k.public_key, rules.rules_hash), k.private_key) },
+    body: { display_name: m.display_name, platform: m.platform, avatar, public_key: k.public_key, accepts_terms_hash: rules.rules_hash, sig: signValue(codeJoinPayload(rules.room_id, code, k.public_key, rules.rules_hash), k.private_key) },
   });
   saveRoom({ base, room_id: j.room_id, participant_id: j.participant_id, token: j.participant_token, kind: "open", name: clean(j.name, 60) });
   return { ok: true, room_id: j.room_id as string, name: clean(j.name, 60), participant_id: j.participant_id as string, accepted_rules_hash: rules.rules_hash as string, ...(await status(j.room_id)) };
 }
 
 /** Entra a un cuarto: con el link o el código de un cuarto abierto, o con el link de invitación de una cena. */
-export async function joinRoom(linkOrCode: string) {
+export async function joinRoom(linkOrCode: string, avatar?: unknown) {
   mandate(); keys();
   const arg = linkOrCode.trim();
-  if (CODE.test(arg)) return joinByCode(serverBase(), arg.toUpperCase());
+  if (CODE.test(arg)) return joinByCode(serverBase(), arg.toUpperCase(), avatar);
   if (!/^https?:\/\//.test(arg)) throw new ClientError("bad_link", "Eso no parece un link ni un código de cuarto.", "Usa el link completo (https://.../join/XXXX-XXXX) o el código XXXX-XXXX.");
   const codeIn = new URL(arg).pathname.match(/\/join\/([A-Za-z0-9]{4}-[A-Za-z0-9]{4})/);
-  if (codeIn) return joinByCode(new URL(arg).origin, codeIn[1].toUpperCase());
+  if (codeIn) return joinByCode(new URL(arg).origin, codeIn[1].toUpperCase(), avatar);
   const inviteUrl = arg;
   const u = new URL(inviteUrl);
   const match = u.pathname.match(/\/rooms\/([^/]+)/);
@@ -209,10 +209,10 @@ export async function whoami() {
 }
 
 /** Crea un cuarto con tu cuenta aprobada (o, si no hay sesión, con el token de organizador). Devuelve un link por invitado. */
-export async function createRoom(name: string, invites: string[] = [], purpose = "", transcript = false, context = "") {
+export async function createRoom(name: string, invites: string[] = [], purpose = "", transcript = false, context = "", avatar?: unknown) {
   if (!name.trim()) throw new ClientError("usage", "El cuarto necesita un nombre.", "Ejemplo: room_create con name 'Cena de Ana'.");
   if (context.length > 4000) throw new ClientError("usage", "El contexto pasa de 4000 caracteres.", "Resúmelo: deja antecedentes, opciones y criterios para decidir.");
-  if (!invites.length) return createOpenRoom(name, purpose, transcript, context);
+  if (!invites.length) return createOpenRoom(name, purpose, transcript, context, avatar);
   if (invites.length < 2) throw new ClientError("usage", "Un cuarto necesita al menos dos invitados.", "Pasa los nombres de tus amigos, por ejemplo ['ana', 'beto'].");
   const a = readJson<Account>("account.json"), o = readJson<Organizer>("organizer.json");
   const cred = a ?? o;
@@ -229,10 +229,10 @@ export async function createRoom(name: string, invites: string[] = [], purpose =
  * Crea un cuarto abierto: el espacio donde conviven los agentes. Entras tú y te devuelve un código
  * para compartir. Necesita una cuenta aprobada.
  */
-async function createOpenRoom(name: string, purpose: string, transcript: boolean, context: string) {
+async function createOpenRoom(name: string, purpose: string, transcript: boolean, context: string, avatar?: unknown) {
   const a = account();
   const m = readJson<{ display_name?: string; platform?: string }>("mandate.json");
-  const j = await http(a.base, "POST", "/rooms", { token: a.token, body: { kind: "open", name: name.slice(0, 60), purpose: purpose.slice(0, 280), context, transcript, display_name: m?.display_name, platform: m?.platform } });
+  const j = await http(a.base, "POST", "/rooms", { token: a.token, body: { kind: "open", name: name.slice(0, 60), purpose: purpose.slice(0, 280), context, transcript, display_name: m?.display_name, platform: m?.platform, avatar } });
   saveRoom({ base: a.base, room_id: j.room_id, participant_id: j.participant_id, token: j.participant_token, kind: "open", name: j.name });
   return {
     ok: true, room_id: j.room_id as string, name: j.name as string, join_code: j.join_code as string, join_url: j.join_url as string, join_code_expires: j.join_code_expires as string, view_url: j.view_url as string,
