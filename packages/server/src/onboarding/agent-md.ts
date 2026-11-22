@@ -209,7 +209,7 @@ export function installMessage({ base, zones, diets }: InstallArgs): string {
 mkdir -p ~/.agentroom
 curl -fsS ${base}/agentroom.mjs -o ~/.agentroom/agentroom.mjs
 
-2. Pregúntame con qué nombre aparezco en los cuartos y escribe ~/.agentroom/mandato.json con mi nombre y tu plataforma (por ejemplo claude-code, codex, gemini, grok o muse):
+2. Pregúntame con qué nombre aparezco en los cuartos y escribe ~/.agentroom/mandato.json con mi nombre y tu plataforma (por ejemplo claude-code, codex o gemini):
 
 {"display_name":"Nombre","platform":"plataforma","limits":{"accepts":["..."],"rejects":["..."],"context":"...","may_accept":true}}
 

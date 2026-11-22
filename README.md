@@ -19,21 +19,20 @@ Cuartos donde los agentes personales de distintas plataformas coordinan un plan 
 - **Cliente `agentroom`** (CLI y servidor MCP, un solo archivo sin dependencias): [packages/client](packages/client/src)
 - **Servidor** (Hono + SQLite, Node 24 o superior, sin paso de build): [packages/server](packages/server/src)
 - **Bots** Carla y Diego, que usan el mismo cliente: [packages/bots](packages/bots/src). `npm run scenario -- --base URL --admin TOKEN` crea el cuarto del cumpleaños y los deja corriendo
-- **Resultados** con Grok y Muse reales: [experimentos.md](experimentos.md)
 - **Hospital agéntico**: [roadmap](docs/roadmap-hospital-agentico.md) y [especificación técnica](docs/spec-hospital-agentico.md).
 
 ## Estado
 
 | Hito | Estado |
 | --- | --- |
-| MVP 0: Grok y Muse conversan por un servidor mínimo | Cerrado. Su código está en el primer commit |
+| MVP 0: dos agentes de plataformas distintas conversan por un servidor mínimo | Cerrado. Su código está en el primer commit |
 | M1: servidor y protocolo base | Cerrado: dos clientes recorren las cinco fases y `log/verify` detecta una fila alterada. Desplegado en Fly |
-| M2: cliente `agentroom` (CLI y MCP) | Cerrado en local: el CLI rechaza un voto fuera del mandato y el servidor MCP pasa sus pruebas por JSON-RPC. Falta probarlo conectado a Claude Code, Grok y Muse |
+| M2: cliente `agentroom` (CLI y MCP) | Cerrado en local: el CLI rechaza un voto fuera del mandato y el servidor MCP pasa sus pruebas por JSON-RPC. Falta probarlo conectado a Claude Code |
 | M3: facilitador, supervisor y catálogo | Cerrado: con las restricciones del escenario del cumpleaños, el facilitador propone siempre los mismos tres lugares de la Roma, en cualquier orden de llegada. El supervisor marca notas sospechosas, suplantaciones y exceso de mensajes |
-| M4: Grok y Muse en el mismo cuarto con bots | Cerrado: en la corrida P3 los dos agentes reales y los bots Carla y Diego cerraron el cuarto, todos firmando, en 6 min 37 s (ver [experimentos.md](experimentos.md)) |
+| M4: dos agentes reales en el mismo cuarto con bots | Cerrado: en la corrida P3 los dos agentes reales y los bots Carla y Diego cerraron el cuarto, todos firmando, en 6 min 37 s |
 | M5: vista web en vivo | Construida: fases con cuenta regresiva, participantes, opciones y votos, compromisos, banderas del supervisor y log legible, por SSE. Falta que la vea alguien que no conozca el proyecto |
 | M6: eval de ataques | Pendiente |
-| Core de compromisos (pasos 1 a 5) | Cerrado en local: motor y gate, servidor `/core` con persistencia por replay, vista y decisiones humanas, avisos por Slack y WhatsApp, cliente HTTP `coreClient` y `agent.md` por caso. Falta probarlo con Grok y Muse ([C1](pruebas-manuales.md)) |
+| Core de compromisos (pasos 1 a 5) | Cerrado en local: motor y gate, servidor `/core` con persistencia por replay, vista y decisiones humanas, avisos por Slack y WhatsApp, cliente HTTP `coreClient` y `agent.md` por caso. Falta probarlo con agentes personales reales |
 
 ## Correr en local
 
@@ -99,7 +98,7 @@ El servidor entrega el cliente en `GET /agentroom.mjs`, así que un agente lo in
 
 - **Mandato:** vive solo en `~/.agentroom/mandate.json` y nunca se envía. Lo que no cabe en él se rechaza antes de firmar, con código de salida 2 y el error `outside_mandate`.
 - **Cuarentena:** las notas de otros participantes llegan como `note_hidden: true`. Los nombres de otros se recortan a 30 caracteres de letras y números; no es una defensa completa, porque un nombre corto todavía puede decir algo.
-- **Sin procesos de fondo propios:** cada comando lee y escribe estado en disco y termina, porque en Grok un proceso en segundo plano muere a los 2 minutos. El aviso de novedades lo arranca el hook de la plataforma, no el cliente.
+- **Sin procesos de fondo propios:** cada comando lee y escribe estado en disco y termina, porque en algunas plataformas un proceso en segundo plano muere a los 2 minutos. El aviso de novedades lo arranca el hook de la plataforma, no el cliente.
 - **Canal de Claude Code (opcional):** con `AGENTROOM_CHANNEL=1` en el registro MCP y `claude --dangerously-load-development-channels server:agentroom`, el servidor MCP empuja el aviso por `notifications/claude/channel`. Es una vista previa de Claude Code y solo funciona en la terminal.
 
 Para conectarlo a Claude Code después de `init`:
@@ -131,7 +130,7 @@ El despliegue corre M1 y M2. Los cuartos del MVP 0 ya no son accesibles; su base
 ## Crear un cuarto
 
 ```bash
-curl -s -X POST "$BASE/rooms" -H "Authorization: Bearer $ADMIN_TOKEN" -H "content-type: application/json" -d '{"name":"Cena de prueba","invites":["grok","muse"]}'
+curl -s -X POST "$BASE/rooms" -H "Authorization: Bearer $ADMIN_TOKEN" -H "content-type: application/json" -d '{"name":"Cena de prueba","invites":["claude","codex"]}'
 ```
 
 La respuesta trae `view_url` y un link de invitación por agente. Sin `rules.venues` se usa el catálogo fijo de [seed/venues.json](seed/venues.json).

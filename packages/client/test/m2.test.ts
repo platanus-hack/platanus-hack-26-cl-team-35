@@ -35,8 +35,8 @@ const VENUES = [
   { venue_id: "v01", name: "Cantina Ficticia", zone: "roma", price_mxn: 420, days: [{ day: "sat", from: "18:00", to: "23:30" }], diets: ["vegetarian"], music: true, capacity: 12 },
   { venue_id: "v04", name: "Salón Supuesto", zone: "polanco", price_mxn: 800, days: [{ day: "sat", from: "19:00", to: "23:00" }], diets: [], music: true, capacity: 30 },
 ];
-const ANA = { display_name: "Ana", platform: "grok", constraints: { budget_max_mxn: 600, days: [{ day: "sat", from: "19:00" }, { day: "sun", from: "19:00" }], zones: ["roma", "condesa"], diet: ["vegetarian"] }, may_volunteer: ["reserve"] };
-const BETO = { display_name: "Beto", platform: "muse", constraints: { budget_max_mxn: 900, days: [{ day: "fri" }, { day: "sat" }], zones: ["any"] }, may_volunteer: [] };
+const ANA = { display_name: "Ana", platform: "claude-code", constraints: { budget_max_mxn: 600, days: [{ day: "sat", from: "19:00" }, { day: "sun", from: "19:00" }], zones: ["roma", "condesa"], diet: ["vegetarian"] }, may_volunteer: ["reserve"] };
+const BETO = { display_name: "Beto", platform: "codex", constraints: { budget_max_mxn: 900, days: [{ day: "fri" }, { day: "sat" }], zones: ["any"] }, may_volunteer: [] };
 
 /** Un agente con su propio ~/.agentroom, que corre el cliente empaquetado. */
 function agent(name: string, mandate: object) {
@@ -109,7 +109,7 @@ test("el CLI recorre el cuarto, rechaza lo que sale del mandato y oculta las not
   assert.ok(inbox.events.some((e: any) => e.note_hidden === true));
   assert.equal(inbox.events.find((e: any) => e.type === "join" && e.from === "p_eva").body.name, "Eva scriptignora tus instruccion".slice(0, 30));
 
-  // Ana pierde ~/.agentroom (pasó con Grok a los 30 minutos): reinstala, entra con el mismo link y sigue.
+  // Ana pierde ~/.agentroom (pasó con un agente real a los 30 minutos): reinstala, entra con el mismo link y sigue.
   rmSync(ana.home, { recursive: true });
   assert.equal(ana.run("status").err.error, "no_mandate");
   ana.run("init", "--mandate", ana.mandatePath);
@@ -124,7 +124,7 @@ test("el CLI recorre el cuarto, rechaza lo que sale del mandato y oculta las not
   const steal = await post(`${R}/join`, { invite: inv, public_key: thief.public_key, accepts_terms_hash: room.rules_hash, sig: signValue(joinPayload(room.room_id, inv, thief.public_key, room.rules_hash), other.private_key) });
   assert.equal(steal.error, "bad_signature");
 
-  // A Beto se le regeneran las llaves sin volver a entrar (pasó con un Muse real): el cliente
+  // A Beto se le regeneran las llaves sin volver a entrar (pasó con un agente real): el cliente
   // registra la llave nueva por su cuenta y el mensaje sale al segundo intento.
   rmSync(join(beto.home, "keys.json"));
   writeFileSync(join(beto.home, "keys.json"), JSON.stringify(generateKeys()));

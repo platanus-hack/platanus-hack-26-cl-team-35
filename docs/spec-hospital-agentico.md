@@ -66,7 +66,7 @@ Para vigilancia, el hub agrega recuentos confirmados por síndrome y ventana. Gu
 
 ## Gateway de asistentes
 
-Herramientas iniciales `request_handoff` y `get_handoff_status`. Claude Code con Sonnet puede usar un proceso MCP local. Grok usa una función controlada por la app. Confirmar la integración real de Muse y Dot antes de comprometer el conector. El asistente solicita una gestión y recibe un estado logístico limitado a su propio alcance. El gateway asigna credenciales de corta duración, limita la tasa, aplica revocación y audita las llamadas. La conexión a la nube la inicia el conector y el hub mantiene las rutas internas en la LAN. Usar cargas estructuradas con campos permitidos y sin notas libres, imágenes ni datos clínicos. Los agentes locales siguen funcionando cuando el conector se queda sin internet. [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [Grok function calling](https://docs.x.ai/developers/tools/function-calling)
+Herramientas iniciales `request_handoff` y `get_handoff_status`. Claude Code con Sonnet puede usar un proceso MCP local. Confirmar la integración real de Dot antes de comprometer el conector. El asistente solicita una gestión y recibe un estado logístico limitado a su propio alcance. El gateway asigna credenciales de corta duración, limita la tasa, aplica revocación y audita las llamadas. La conexión a la nube la inicia el conector y el hub mantiene las rutas internas en la LAN. Usar cargas estructuradas con campos permitidos y sin notas libres, imágenes ni datos clínicos. Los agentes locales siguen funcionando cuando el conector se queda sin internet. [Claude Code MCP](https://code.claude.com/docs/en/mcp)
 
 ## Verificación y piloto
 

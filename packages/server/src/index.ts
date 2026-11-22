@@ -231,7 +231,7 @@ app.post("/rooms", async (c) => {
     const i = rules.error.issues[0];
     return err(c, 400, "invalid_rules", `Las reglas no pasan el esquema: ${i.path.join(".")}: ${i.message}`, "Revisa el esquema Rules en packages/protocol.");
   }
-  const labels: string[] = Array.isArray(body.invites) && body.invites.length ? body.invites.map(String) : ["grok", "muse"];
+  const labels: string[] = Array.isArray(body.invites) && body.invites.length ? body.invites.map(String) : ["claude", "codex"];
   if (labels.length > 20) return err(c, 400, "bad_invites", "Un cuarto admite hasta 20 invitados.", "Manda menos nombres en invites.");
   const roomName = oneLine(body.name, 60) || "Cuarto";
   const id = `r_${rid(4)}`;

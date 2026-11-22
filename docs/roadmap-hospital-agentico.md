@@ -28,7 +28,7 @@ Todos los hitos están propuestos. Los criterios se prueban con datos sintético
 | M4. Gemelo operativo | Grafo versionado de rutas, capacidad y equipos. Simulación local de alternativas ante un cierre o congestión. | Cerrar un pasillo en la demo, mostrar dos opciones cuando existan, explicar sus restricciones y elevar una nueva propuesta. Medir tiempos y verificar cero reservas dobles bajo replay. |
 | M5. Aprendizaje en sombra | Proponer cambios al estimador de tiempos con trazas locales. Si Core Motion funciona en banco, sumar duración de movimiento y pausas por tramo. | Comparar sensores con marcas manuales y evaluar el modelo en escenarios reservados de red, demanda y ruido. Promover solo con mejora verificable y aprobación del operador. |
 | M6. Vigilancia local | Detección de series inusuales con datos agregados de casos sintéticos y simulación de demanda. | Reproducir un incremento y períodos normales con datos atrasados. Registrar tiempo hasta alerta y falsos positivos. Evaluar el pronóstico por separado y activarlo solo si mejora un baseline. |
-| M7. Asistentes personales | Gateway con Claude Sonnet o Grok primero. Muse y Dot según interfaz confirmada. | Crear y consultar una solicitud desde un proveedor real, bloquear otro caso y reintentos no autorizados, revocar acceso y terminar un traslado con el proveedor caído. |
+| M7. Asistentes personales | Gateway con Claude Sonnet primero. Dot según interfaz confirmada. | Crear y consultar una solicitud desde un proveedor real, bloquear otro caso y reintentos no autorizados, revocar acceso y terminar un traslado con el proveedor caído. |
 
 ## Demo integrada
 

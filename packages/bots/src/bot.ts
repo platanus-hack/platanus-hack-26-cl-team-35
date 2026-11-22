@@ -1,5 +1,5 @@
 // Un bot que sustituye a una persona en el cuarto.
-// Usa el mismo cliente empaquetado que Grok y Muse, como proceso aparte y con su propia carpeta:
+// Usa el mismo cliente empaquetado que los agentes reales, como proceso aparte y con su propia carpeta:
 // no tiene ningún acceso especial al servidor. Si un bot puede hacer algo, un agente real también.
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";

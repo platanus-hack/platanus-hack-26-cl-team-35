@@ -1,5 +1,5 @@
-// Los bots recorren el escenario del cumpleaños con el mismo cliente que usan Grok y Muse.
-// (El criterio de cierre del M4 es con Grok y Muse reales; aquí Ana y Beto son bots suplentes.)
+// Los bots recorren el escenario del cumpleaños con el mismo cliente que usan los agentes reales.
+// (El criterio de cierre del M4 es con agentes reales; aquí Ana y Beto son bots suplentes.)
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -64,7 +64,7 @@ test("cuatro delegados con el cliente cierran el cumpleaños en la Roma", async 
   assert.ok(ev.filter((e: any) => e.from.startsWith("p_")).every((e: any) => e.signed));
   // Ana (la única con permiso) reservó; nadie más lo intentó en el servidor.
   const fulfill = ev.find((e: any) => e.type === "fulfill");
-  assert.equal(fulfill.from, "p_grok");
+  assert.equal(fulfill.from, "p_ana");
   assert.match(fulfill.body.evidence.confirmation, /^RES-[A-Z0-9]{4}$/);
   assert.equal(ev.filter((e: any) => e.type === "rejected").length, 0);
   assert.equal(ev.filter((e: any) => e.type === "volunteer").length, 1);

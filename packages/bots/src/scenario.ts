@@ -1,4 +1,4 @@
-// Escenario del cumpleaños: crea el cuarto, imprime los links de Grok y Muse,
+// Escenario del cumpleaños: crea el cuarto, imprime los links de Ana y Beto,
 // y corre los bots Carla y Diego hasta que el cuarto termine.
 //
 //   node packages/bots/src/scenario.ts --base https://servidor --admin TOKEN
@@ -12,7 +12,7 @@ export const PERSONAS = JSON.parse(readFileSync(fileURLToPath(new URL("../person
 export type ScenarioOptions = {
   base: string;
   admin: string;
-  /** Ana y Beto como bots, para probar sin Grok ni Muse. */
+  /** Ana y Beto como bots, para probar sin agentes reales. */
   standIns?: boolean;
   /** Plazo de cada fase en segundos. */
   deadlines?: Record<string, number>;
@@ -29,7 +29,7 @@ export async function runScenario(o: ScenarioOptions) {
     headers: { authorization: `Bearer ${o.admin}`, "content-type": "application/json" },
     body: JSON.stringify({
       name: "Cumpleaños de Diego",
-      invites: ["grok", "muse", "carla", "diego"],
+      invites: ["ana", "beto", "carla", "diego"],
       rules: { honoree: "diego", deadlines: o.deadlines ?? { open: 7200, constraints: 1800, voting: 1800, commitments: 1800 } },
     }),
   });
@@ -39,16 +39,16 @@ export async function runScenario(o: ScenarioOptions) {
   const link = (label: string) => room.invites.find((i) => i.label === label)!.url;
 
   log(`Cuarto ${room.room_id} · vista: ${room.view_url}`);
-  log(`Link para Grok (Ana):  ${link("grok")}`);
-  log(`Link para Muse (Beto): ${link("muse")}`);
+  log(`Link para Ana:  ${link("ana")}`);
+  log(`Link para Beto: ${link("beto")}`);
 
   const bots = [new Bot("carla", PERSONAS.carla, { log }), new Bot("diego", PERSONAS.diego, { log })];
   bots[0].join(link("carla"));
   bots[1].join(link("diego"));
   if (o.standIns) {
     const ana = new Bot("ana", PERSONAS.ana, { log, volunteers: true }), beto = new Bot("beto", PERSONAS.beto, { log });
-    ana.join(link("grok"));
-    beto.join(link("muse"));
+    ana.join(link("ana"));
+    beto.join(link("beto"));
     bots.push(ana, beto);
   }
 
