@@ -175,8 +175,14 @@ if [ "$cmd" = join ]; then
   exit 0
 fi
 
-# 4b. Crear un cuarto: hace falta una cuenta aprobada.
-login="$(ar login --base "$base")"
+# 4b. Crear un cuarto: hace falta una cuenta aprobada. Si ya hay sesión aprobada en este servidor, no se vuelve a iniciar
+# (el servidor limita los logins por IP y en un taller muchos comparten la misma).
+me="$(ar whoami 2>/dev/null || true)"
+if [ "$(printf '%s' "$me" | json server 2>/dev/null)" = "$base" ] && [ "$(printf '%s' "$me" | json status 2>/dev/null)" = approved ]; then
+  login="$me"
+else
+  login="$(ar login --base "$base")"
+fi
 acct="$(printf '%s' "$login" | json account_id)"
 status="$(printf '%s' "$login" | json status)"
 if [ "$status" != approved ]; then
