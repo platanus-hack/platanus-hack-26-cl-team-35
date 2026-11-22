@@ -11,12 +11,13 @@ import { codeJoinPayload, generateKeys, loginPayload, sanitizeAvatar, signValue 
 test("sanitizeAvatar: conserva lo válido y descarta lo que no está en la lista", () => {
   const a = sanitizeAvatar({
     hair: "pink", eyes: "<script>", outfit: "hoodie", accessory: "headphones", mood: "happy", pet: "axolotl",
-    palette: "#ff8fb1", voice: { pitch: 1.4, rate: 9, lang: "es-MX" }, bio: "organizo\ncenas <b>", extra: "x",
+    palette: "#ff8fb1", voice: { pitch: 1.4, rate: 9, lang: "es-MX" }, bio: "organizo\ncenas <b>", name: "  Lumen\n", extra: "x",
   });
   assert.deepEqual(a, {
     hair: "pink", outfit: "hoodie", accessory: "headphones", mood: "happy", pet: "axolotl",
-    palette: "#ff8fb1", voice: { pitch: 1.4, lang: "es-MX" }, bio: "organizo cenas <b>",
+    palette: "#ff8fb1", voice: { pitch: 1.4, lang: "es-MX" }, bio: "organizo cenas <b>", name: "Lumen",
   });
+  assert.equal(sanitizeAvatar({ name: "x".repeat(99) })!.name!.length, 24);
   assert.equal(sanitizeAvatar({ palette: "red;background:url(x)" }), null);
   assert.equal(sanitizeAvatar({ voice: { lang: "es\"><svg" } }), null);
   assert.equal(sanitizeAvatar("hoodie"), null);

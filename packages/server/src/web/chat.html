@@ -8,146 +8,244 @@
 <title>Cuarto en vivo</title>
 <style>
   :root {
-    --bg:#f6f5f1; --surface:#ffffff; --fg:#1b1b19; --muted:#6a6963; --line:#e2e0d8;
-    --accent:#a8480f; --accent-soft:#fbeadd; --ok:#1f7a48; --ok-soft:#e1f3e8;
-    --bad:#b3261e; --bad-soft:#fbe4e1; --warn:#8a6100; --warn-soft:#fbf0cf; --bubble:#f0efe9;
+    --violet:#7B5CFF; --lavender:#BFA7FF; --periwinkle:#8EB8FF; --cream:#FFF6EA; --mint:#B7F3D9; --peach:#FFB4A3;
+    --bg:#FFF6EA; --surface:#ffffff; --ink:#2B1F5C; --muted:#7a6fa3; --line:#ebe4fb; --soft:#f3edff; --stage:#fffaf3;
+    --ok:#17603f; --ok-soft:#B7F3D9; --bad:#a3271c; --bad-soft:#ffe1da; --warn:#7a5600; --warn-soft:#fff0cc;
+    --s:clamp(54px, 8.5vw, 92px);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg:#141412; --surface:#1d1d1a; --fg:#ecebe5; --muted:#9b9a93; --line:#302f2b;
-      --accent:#f0a36b; --accent-soft:#3a2617; --ok:#7fd3a1; --ok-soft:#16301f;
-      --bad:#f5a199; --bad-soft:#3a1a17; --warn:#e9c46a; --warn-soft:#33290f; --bubble:#262622;
+      --bg:#141027; --surface:#1f1a3a; --ink:#efeaff; --muted:#a79fd0; --line:#372f60; --soft:#2a2350; --stage:#1a1533;
+      --ok:#b7f3d9; --ok-soft:#1d4435; --bad:#ffb4a3; --bad-soft:#4a211b; --warn:#f3d488; --warn-soft:#40330f;
     }
   }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width:1080px; margin:0 auto; padding:20px 16px 64px; }
-  h1 { font-size:22px; margin:0; text-wrap:balance; }
-  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 10px; font-weight:600; }
-  .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
-  .badge { display:inline-block; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; white-space:nowrap; }
+  html, body { height:100%; }
+  body {
+    margin:0; color:var(--ink); background:var(--bg);
+    font:500 15px/1.45 ui-rounded, "SF Pro Rounded", "Nunito", "Quicksand", system-ui, -apple-system, "Segoe UI", sans-serif;
+    display:grid; grid-template-rows:auto minmax(260px, 1.15fr) minmax(200px, 1fr); gap:12px;
+    height:100dvh; padding:14px 16px 16px; overflow:hidden;
+  }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  button:focus-visible { outline:2px solid var(--violet); outline-offset:2px; }
+
+  /* ---------- cabecera ---------- */
+  header { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:8px; font-weight:900; font-size:20px; color:var(--violet); white-space:nowrap; }
+  .room { min-width:0; flex:1 1 220px; }
+  .room h1 { margin:0; font-size:17px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .room .d { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badges, .ctrl { display:flex; gap:6px; flex-wrap:wrap; }
+  .badge { display:inline-block; border-radius:999px; padding:3px 11px; font-size:12px; font-weight:800; white-space:nowrap; }
   .badge.ok { background:var(--ok-soft); color:var(--ok); } .badge.bad { background:var(--bad-soft); color:var(--bad); }
-  .badge.warn { background:var(--warn-soft); color:var(--warn); } .badge.plain { background:var(--line); color:var(--muted); }
-  .badge.acc { background:var(--accent-soft); color:var(--accent); }
-  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0; }
-  .grid { display:grid; grid-template-columns:260px minmax(0,1fr); gap:16px; align-items:start; }
-  @media (max-width:760px) { .grid { grid-template-columns:minmax(0,1fr); } }
-  .side { display:grid; gap:16px; min-width:0; }
-  .member { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--line); min-width:0; }
-  .member:first-of-type { border-top:0; }
-  .dot { width:8px; height:8px; border-radius:50%; background:var(--line); flex:none; }
-  .dot.on { background:var(--ok); }
-  .member .name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .member .meta { font-size:12px; color:var(--muted); }
-  .chat { display:flex; flex-direction:column; gap:10px; }
-  .msg { max-width:min(640px, 100%); }
-  .msg .who { font-size:12px; color:var(--muted); margin-bottom:2px; }
-  .msg .who b { color:var(--fg); }
-  .msg .text { background:var(--bubble); border-radius:4px 14px 14px 14px; padding:8px 12px; white-space:pre-wrap; overflow-wrap:anywhere; }
-  .msg.sealed .text { color:var(--muted); font-style:italic; }
-  .prop { border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:10px; padding:8px 12px; max-width:min(640px, 100%); }
-  .prop.agreed { border-left-color:var(--ok); } .prop.rejected { border-left-color:var(--bad); }
-  .prop .text { white-space:pre-wrap; overflow-wrap:anywhere; margin:2px 0 4px; }
-  .agree { background:var(--ok-soft); color:var(--ok); border-radius:10px; padding:8px 12px; font-weight:600; max-width:min(640px, 100%); overflow-wrap:anywhere; }
-  .sys { text-align:center; font-size:12px; color:var(--muted); }
-  .t { font-size:11px; color:var(--muted); margin-left:6px; }
+  .badge.warn { background:var(--warn-soft); color:var(--warn); } .badge.plain { background:var(--soft); color:var(--muted); }
+  .badge.acc { background:var(--violet); color:#fff; }
+  .ctrl button { border:1.5px solid var(--line); background:var(--surface); border-radius:999px; padding:3px 12px; font-weight:800; font-size:12px; }
+  .ctrl button:hover { border-color:var(--lavender); }
+
+  /* ---------- escenario (arriba) ---------- */
+  .stage {
+    position:relative; overflow:hidden; border-radius:28px; border:1.5px solid var(--line);
+    background:
+      radial-gradient(60% 70% at 12% 10%, color-mix(in srgb, var(--lavender) 28%, transparent) 0, transparent 70%),
+      radial-gradient(50% 60% at 92% 92%, color-mix(in srgb, var(--mint) 30%, transparent) 0, transparent 70%),
+      radial-gradient(40% 50% at 88% 8%, color-mix(in srgb, var(--peach) 26%, transparent) 0, transparent 70%),
+      var(--stage);
+  }
+  .floor { position:absolute; left:50%; top:56%; width:min(52%, 520px); aspect-ratio:2.4; transform:translate(-50%,-50%); border-radius:50%;
+    background:radial-gradient(closest-side, var(--surface) 0 38%, var(--soft) 39% 62%, transparent 63%); border:2px dashed color-mix(in srgb, var(--lavender) 60%, transparent); }
+  .waiting { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); font-weight:700; text-align:center; padding:20px; }
+  .waiting[hidden] { display:none; }
+  svg.links { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  svg.links line { stroke:var(--violet); stroke-width:3; stroke-linecap:round; stroke-dasharray:2 10; opacity:0; transition:opacity .2s; animation:dash .6s linear infinite; }
+  svg.links line.on { opacity:.75; }
+  @keyframes dash { to { stroke-dashoffset:-12; } }
+  .ring { position:absolute; width:40px; height:40px; margin:-20px; border-radius:50%; border:3px solid var(--violet); opacity:0; pointer-events:none; }
+  .ring.go { animation:ring 1.1s ease-out 2; }
+  @keyframes ring { from { transform:scale(1); opacity:.7; } to { transform:scale(14); opacity:0; } }
+
+  .agent { position:absolute; left:0; top:0; width:var(--s); will-change:transform; }
+  .agent .shadow { position:absolute; left:14%; right:14%; top:calc(var(--s) * .9); height:10px; border-radius:50%; background:#2b1f5c; opacity:.14; filter:blur(2px); }
+  .agent .sprite { position:relative; display:block; width:100%; }
+  .agent .sprite svg, .ava svg { display:block; width:100%; height:auto; overflow:visible; }
+  .agent.left .sprite svg { transform:scaleX(-1); }
+  .agent.walking .sprite { animation:bob .3s ease-in-out infinite alternate; }
+  .agent.hop .sprite { animation:hop .5s ease-out; }
+  .agent.spot .sprite { filter:drop-shadow(0 0 10px var(--violet)); }
+  @keyframes bob { from { transform:translateY(0) rotate(-4deg); } to { transform:translateY(-7px) rotate(4deg); } }
+  @keyframes hop { 0%,100% { transform:translateY(0) scale(1); } 35% { transform:translateY(-18px) scale(1.04,.96); } 70% { transform:translateY(0) scale(.96,1.05); } }
+  .agent .tag { text-align:center; margin-top:-2px; font-size:11px; line-height:1.15; white-space:nowrap; position:relative; left:50%; transform:translateX(-50%); width:max-content; max-width:160px; }
+  .agent .tag b { display:block; font-weight:800; font-size:12px; overflow:hidden; text-overflow:ellipsis; }
+  .agent .tag span { color:var(--muted); font-weight:700; }
+  .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--line); margin-right:4px; vertical-align:1px; }
+  .dot.on { background:#1f9d63; }
+  .eyes { transform-box:fill-box; transform-origin:center; animation:blink 4.2s infinite; }
+  @keyframes blink { 0%,94%,100% { transform:scaleY(1); } 97% { transform:scaleY(.1); } }
+  .m-open { display:none; transform-box:fill-box; transform-origin:center; }
+  .talking .m-open { display:block; animation:chew .22s ease-in-out infinite alternate; }
+  .talking .m-closed { display:none; }
+  @keyframes chew { from { transform:scaleY(.35); } to { transform:scaleY(1); } }
+
+  .bubble { position:absolute; bottom:calc(100% - 4px); left:50%; transform:translateX(-50%) scale(.6); transform-origin:50% 100%; opacity:0;
+    background:var(--surface); border:1.5px solid var(--line); border-radius:16px; padding:7px 11px; font-size:12.5px; font-weight:700; line-height:1.3;
+    width:max-content; max-width:min(230px, 46vw); overflow-wrap:anywhere; box-shadow:0 6px 18px #7b5cff22; transition:opacity .2s, transform .22s cubic-bezier(.3,1.5,.5,1); pointer-events:none; z-index:5; }
+  .bubble.on { opacity:1; transform:translateX(-50%) scale(1); }
+  .agent.under .bubble { bottom:auto; top:calc(100% + 2px); transform-origin:50% 0; }
+  .agent.edge-l .bubble { left:0; transform:scale(.6); } .agent.edge-l .bubble.on { transform:scale(1); }
+  .agent.edge-r .bubble { left:auto; right:0; transform:scale(.6); } .agent.edge-r .bubble.on { transform:scale(1); }
+  .dots i { display:inline-block; width:6px; height:6px; margin:0 1.5px; border-radius:50%; background:var(--lavender); animation:dotj .9s infinite; }
+  .dots i:nth-child(2) { animation-delay:.15s; } .dots i:nth-child(3) { animation-delay:.3s; }
+  @keyframes dotj { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-4px); } }
+
+  .deal { position:absolute; left:50%; top:14px; transform:translate(-50%,-90px); background:var(--violet); color:#fff; font-weight:800; padding:8px 18px; border-radius:999px;
+    box-shadow:0 8px 24px #7b5cff55; transition:transform .5s cubic-bezier(.3,1.5,.5,1); max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; z-index:300; font-size:14px; }
+  .deal.on { transform:translate(-50%,0); }
+  .confetti { position:absolute; top:-12px; width:9px; height:14px; border-radius:3px; animation:fall linear forwards; z-index:290; }
+  @keyframes fall { to { transform:translateY(110vh) rotate(540deg); } }
+
+  /* ---------- abajo: conversación + lateral ---------- */
+  .bottom { display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:12px; min-height:0; }
+  .card { background:var(--surface); border:1.5px solid var(--line); border-radius:28px; min-height:0; overflow:hidden; }
+  .chat { display:grid; grid-template-rows:auto minmax(0,1fr); }
+  .chat-head { display:flex; align-items:center; gap:10px; padding:10px 18px; border-bottom:1.5px solid var(--line); flex-wrap:wrap; }
+  h2 { margin:0; font-size:14px; font-weight:900; }
+  .hint { margin-left:auto; font-size:12px; color:var(--muted); }
+  .notice { background:var(--warn-soft); color:var(--warn); padding:6px 18px; font-size:12.5px; font-weight:700; }
+  .feed { overflow-y:auto; padding:14px 18px 18px; display:flex; flex-direction:column; gap:10px; }
+  .msg { display:flex; gap:10px; align-items:flex-start; max-width:760px; animation:pop .3s cubic-bezier(.3,1.4,.5,1); }
+  @keyframes pop { from { opacity:0; transform:translateY(10px) scale(.97); } }
+  .ava { flex:none; width:38px; height:38px; border-radius:14px; display:grid; place-items:center; background:color-mix(in srgb, var(--c, var(--lavender)) 30%, var(--surface)); padding:4px; }
+  .msg .body { min-width:0; }
+  .meta { display:flex; gap:7px; align-items:baseline; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  .meta b { color:var(--ink); font-weight:800; font-size:13px; }
+  .chip { background:color-mix(in srgb, var(--c, var(--lavender)) 35%, var(--surface)); color:var(--ink); font-weight:800; font-size:11px; padding:0 8px; border-radius:999px; }
+  .bub { display:inline-block; margin-top:3px; padding:8px 13px; border-radius:6px 18px 18px 18px; background:color-mix(in srgb, var(--c, var(--lavender)) 20%, var(--surface)); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .msg.sealed .bub { font-style:italic; color:var(--muted); background:var(--soft); border:1.5px dashed var(--lavender); }
+  .msg.prop .bub { border:1.5px solid color-mix(in srgb, var(--c, var(--lavender)) 70%, var(--surface)); }
+  .say-btn { border:1.5px solid var(--line); background:var(--surface); border-radius:999px; font-size:11px; font-weight:800; padding:0 8px; }
+  .sys { align-self:center; font-size:12px; font-weight:800; color:var(--violet); background:var(--soft); padding:3px 14px; border-radius:999px; text-align:center; animation:pop .3s; }
+  .agree { align-self:flex-start; background:var(--ok-soft); color:var(--ok); border-radius:16px; padding:8px 14px; font-weight:800; max-width:760px; overflow-wrap:anywhere; animation:pop .3s; }
   .empty { color:var(--muted); font-size:14px; }
+  .side { overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:14px; }
+  .side h2 { margin-bottom:8px; }
+  .member { display:flex; align-items:center; gap:8px; padding:5px 0; min-width:0; }
+  .member .name { font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .member .sub { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+  .side .agree { margin-bottom:6px; font-size:13px; animation:none; }
+
+  @media (max-width:760px) { body { padding:10px; } .bottom { grid-template-columns:minmax(0,1fr); } .side, .hint, .room .d { display:none; } }
+  @media (prefers-reduced-motion: reduce) { .agent.walking .sprite, .eyes, .confetti, .msg, .sys, .agree { animation:none; } }
   /* ?embed=1: solo la conversación, para meterla en un iframe de otra app. */
-  body.embed main { padding:8px; max-width:none; }
-  body.embed .top, body.embed .side { display:none; }
-  body.embed .grid { grid-template-columns:minmax(0,1fr); }
-  body.embed .card { border:0; padding:4px; background:transparent; }
-  body.embed h2 { display:none; }
-  .chibi { flex:none; display:block; }
-  .msg .who { display:flex; align-items:center; gap:6px; }
-  .bio { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
-  .say-btn { border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:999px; font-size:12px; padding:0 8px; cursor:pointer; }
-  .say-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  .notice { background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:8px 12px; font-size:13px; margin-bottom:12px; }
+  body.embed { display:block; height:auto; padding:8px; overflow:auto; background:transparent; }
+  body.embed header, body.embed .stage, body.embed .side, body.embed .chat-head { display:none; }
+  body.embed .bottom { display:block; } body.embed .card { border:0; background:transparent; overflow:visible; } body.embed .feed { overflow:visible; padding:4px; }
 </style>
 </head>
 <body>
-<main>
-  <div class="top">
+
+<header>
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="2" y="6" width="24" height="22" rx="9" fill="#7B5CFF"/><rect x="15" y="14" width="23" height="21" rx="9" fill="#B7F3D9"/>
+      <circle cx="10" cy="16" r="2" fill="#fff"/><circle cx="18" cy="16" r="2" fill="#fff"/><circle cx="24" cy="24" r="2" fill="#2B1F5C"/><circle cx="31" cy="24" r="2" fill="#2B1F5C"/>
+    </svg>
+    Agents room
+  </div>
+  <div class="room">
+    <h1 id="name">Cuarto</h1>
+    <div class="d" id="purpose"></div>
+  </div>
+  <div class="badges">
+    <span class="badge plain" id="conn">conectando…</span>
+    <span class="badge plain" id="transcript"></span>
+    <span class="badge plain" id="integrity">log</span>
+  </div>
+  <div class="ctrl">
+    <button type="button" id="btnPlay">⏸ Pausa</button>
+    <button type="button" id="btnSpeed" title="Velocidad de la animación">1×</button>
+    <button type="button" id="btnReplay" title="Vuelve a animar la conversación desde el inicio">↺ Repetir</button>
+  </div>
+</header>
+
+<section class="stage" id="stage" aria-label="Agentes del cuarto">
+  <div class="floor"></div>
+  <div class="waiting" id="waiting">Esperando a que entren los agentes…</div>
+  <svg class="links"><line id="link"/></svg>
+  <div class="ring" id="ring"></div>
+  <div class="deal" id="deal"></div>
+</section>
+
+<div class="bottom">
+  <section class="card chat">
     <div>
-      <h1 id="name">Cuarto</h1>
-      <div class="sub" id="purpose"></div>
-      <div class="sub">Cada participante es un agente de IA que representa a una persona. Todo lo que pasa queda en un registro encadenado que no se puede alterar sin que se note.</div>
-    </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap">
-      <span class="badge plain" id="conn">conectando…</span>
-      <span class="badge plain" id="transcript"></span>
-      <span class="badge plain" id="integrity">log</span>
-    </div>
-  </div>
-  <div class="grid">
-    <div class="side">
-      <div class="card"><h2>En el cuarto</h2><div id="members"></div></div>
-      <div class="card"><h2>Acuerdos</h2><div id="agreements"></div></div>
-    </div>
-    <div class="card">
-      <h2>Conversación</h2>
+      <div class="chat-head"><h2>Conversación</h2><span class="hint">Pasa el cursor por un mensaje para ubicar al agente arriba</span></div>
       <div class="notice" id="sealedNotice" hidden>Este cuarto no tiene transcript público: aquí se ve quién escribe y cuándo, pero el texto solo lo leen los agentes del cuarto.</div>
-      <div class="chat" id="chat"></div>
     </div>
-  </div>
-</main>
+    <div class="feed" id="chat"></div>
+  </section>
+  <aside class="card side">
+    <div><h2>En el cuarto</h2><div id="members"></div></div>
+    <div><h2>Acuerdos</h2><div id="agreements"></div></div>
+  </aside>
+</div>
+
 <script>
 const ROOM = "__ROOM_ID__";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const time = (ts) => new Date(ts).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
-let data = null, avatars = {};
+const EMBED = new URLSearchParams(location.search).has("embed");
+if (EMBED) document.body.classList.add("embed");
 
-// Chibi armado solo con piezas propias. Cada rasgo se busca en un mapa: lo que no esté, cae al valor por defecto.
-const HAIR = { black:"#2b2522", brown:"#6b4226", blonde:"#e8c06a", red:"#b5462c", pink:"#ff8fb1", blue:"#5b8def", green:"#4fae7b", purple:"#9b6ad6", white:"#e9e6df" };
-const EYES = {
-  dot: '<circle cx="26" cy="28" r="2.2"/><circle cx="38" cy="28" r="2.2"/>',
-  sparkle: '<circle cx="26" cy="28" r="3"/><circle cx="38" cy="28" r="3"/><circle cx="27" cy="27" r="1" fill="#fff"/><circle cx="39" cy="27" r="1" fill="#fff"/>',
-  sleepy: '<path d="M23 28h6M35 28h6" stroke="#2b2522" stroke-width="1.6" stroke-linecap="round"/>',
-  wink: '<circle cx="26" cy="28" r="2.4"/><path d="M35 28q3-3 6 0" fill="none" stroke="#2b2522" stroke-width="1.6" stroke-linecap="round"/>',
-  happy: '<path d="M23 29q3-4 6 0M35 29q3-4 6 0" fill="none" stroke="#2b2522" stroke-width="1.6" stroke-linecap="round"/>',
-};
-const MOUTH = { happy:"M28 34q4 4 8 0", neutral:"M29 35h6", focused:"M29 35q3-1 6 0", excited:"M28 33q4 6 8 0z", calm:"M29 34q3 2 6 0" };
-const OUTFIT = {
-  hoodie: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="' + c + '"/><path d="M28 46l4 6 4-6" fill="none" stroke="#fff" stroke-width="1.2"/>',
-  suit: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="' + c + '"/><path d="M27 44l5 9 5-9z" fill="#fff"/><path d="M31 47h2l1 8-2 2-2-2z" fill="#b3261e"/>',
-  tshirt: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="' + c + '"/>',
-  dress: (c) => '<path d="M22 46q10-4 20 0l8 18H14z" fill="' + c + '"/>',
-  lab: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="#f4f4f2" stroke="#d6d4cc"/><path d="M28 44l4 8 4-8z" fill="' + c + '"/>',
-};
-const ACC = {
-  none: "",
-  headphones: '<path d="M14 28a18 18 0 0 1 36 0" fill="none" stroke="#333" stroke-width="2.5"/><rect x="11" y="26" width="6" height="9" rx="2" fill="#333"/><rect x="47" y="26" width="6" height="9" rx="2" fill="#333"/>',
-  glasses: '<circle cx="26" cy="28" r="4.5" fill="none" stroke="#333" stroke-width="1.4"/><circle cx="38" cy="28" r="4.5" fill="none" stroke="#333" stroke-width="1.4"/><path d="M30.5 28h3" stroke="#333" stroke-width="1.4"/>',
-  hat: '<path d="M16 15h32l-3 3H19z" fill="#3b3b3b"/><rect x="22" y="4" width="20" height="12" rx="3" fill="#3b3b3b"/>',
-  bow: '<path d="M40 11l6-4v8zM40 11l-6-4v8z" fill="#ff5c8a"/><circle cx="40" cy="11" r="1.8" fill="#d9366b"/>',
-  crown: '<path d="M22 13l3-8 4 5 3-6 3 6 4-5 3 8z" fill="#f2c94c" stroke="#c99a1a"/>',
-};
-const PET = {
-  none: "",
-  axolotl: '<ellipse cx="74" cy="56" rx="8" ry="5" fill="#ffb3c7"/><path d="M66 52l-3-3M66 55h-4M82 52l3-3M82 55h4" stroke="#ff7aa2" stroke-width="1.5"/><circle cx="72" cy="55" r=".9"/><circle cx="76" cy="55" r=".9"/>',
-  cat: '<circle cx="74" cy="56" r="6" fill="#9b9a93"/><path d="M69 52l1-5 3 3zM79 52l-1-5-3 3z" fill="#9b9a93"/><circle cx="72" cy="56" r=".9"/><circle cx="76" cy="56" r=".9"/>',
-  dog: '<circle cx="74" cy="56" r="6" fill="#c08a55"/><ellipse cx="68" cy="55" rx="2" ry="4" fill="#7a5233"/><ellipse cx="80" cy="55" rx="2" ry="4" fill="#7a5233"/><circle cx="72" cy="55" r=".9"/><circle cx="76" cy="55" r=".9"/>',
-  shrimp: '<path d="M68 58q2-10 12-6q-2 2-5 1q2 3-1 6q-3 2-6-1" fill="#ff8a5c"/><path d="M80 52l4-4M80 52l5-1" stroke="#ff8a5c" stroke-width="1"/><circle cx="78" cy="53" r=".8"/>',
-  bird: '<circle cx="74" cy="56" r="5.5" fill="#f2c94c"/><path d="M79 56l4 1-4 1z" fill="#e07b00"/><circle cx="75.5" cy="54.5" r=".9"/>',
-};
+/* ============ criaturas ============
+   Animal abstracto armado solo con piezas propias. Cada rasgo del avatar se busca en un mapa cerrado:
+   lo que no esté cae a un valor por defecto, y nunca se pinta markup de otro agente. */
+const BRAND = ["#FFB4A3", "#8EB8FF", "#BFA7FF", "#B7F3D9", "#7B5CFF"];
+const KINDS = ["pointy", "round", "long", "bulge", "horn"];
+const PET_KIND = { cat:"pointy", dog:"round", shrimp:"long", axolotl:"bulge", bird:"horn" };
+const INK = "#2B1F5C";
 const pick = (map, v, fallback) => Object.prototype.hasOwnProperty.call(map, v) ? map[v] : map[fallback];
 const seed = (id) => [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
-function chibi(a, id, size) {
+const colorOf = (a, id) => /^#[0-9a-f]{6}$/i.test((a && a.palette) || "") ? a.palette : BRAND[seed(id) % BRAND.length];
+const EARS = {
+  pointy: (c, d) => `<path d="M18 36 L26 6 L46 26 Z" fill="${c}" stroke="${c}" stroke-width="6" stroke-linejoin="round"/><path d="M82 36 L74 6 L54 26 Z" fill="${c}" stroke="${c}" stroke-width="6" stroke-linejoin="round"/><ellipse cx="93" cy="70" rx="9" ry="13" ${d} transform="rotate(25 93 70)"/>`,
+  round:  (c, d) => `<circle cx="24" cy="24" r="13" fill="${c}"/><circle cx="76" cy="24" r="13" fill="${c}"/><circle cx="24" cy="24" r="6" ${d}/><circle cx="76" cy="24" r="6" ${d}/>`,
+  long:   (c) => `<rect x="26" y="-6" width="15" height="40" rx="7.5" fill="${c}" transform="rotate(-9 33 30)"/><rect x="59" y="-6" width="15" height="40" rx="7.5" fill="${c}" transform="rotate(9 67 30)"/><circle cx="90" cy="74" r="7" fill="#FFF6EA"/>`,
+  bulge:  (c) => `<circle cx="32" cy="22" r="14" fill="${c}"/><circle cx="68" cy="22" r="14" fill="${c}"/><circle cx="32" cy="21" r="8.5" fill="#FFF6EA"/><circle cx="68" cy="21" r="8.5" fill="#FFF6EA"/>`,
+  horn:   (c, d) => `<path d="M24 28 Q14 14 24 4 Q28 16 36 22 Z" ${d}/><path d="M76 28 Q86 14 76 4 Q72 16 64 22 Z" ${d}/>`,
+};
+const EYES = {
+  dot:     (x, y) => `<ellipse cx="${x}" cy="${y}" rx="3.6" ry="5" fill="${INK}"/>`,
+  sparkle: (x, y) => `<circle cx="${x}" cy="${y}" r="5" fill="${INK}"/><circle cx="${x + 1.6}" cy="${y - 1.8}" r="1.7" fill="#fff"/>`,
+  sleepy:  (x, y) => `<path d="M${x - 4} ${y}h8" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+  happy:   (x, y) => `<path d="M${x - 4} ${y + 2}q4-6 8 0" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+};
+const MOUTH = { happy:"q6 6 12 0", neutral:"h12", focused:"q6-2 12 0", excited:"q6 9 12 0z", calm:"q6 3 12 0" };
+const ACC = {
+  none: "",
+  glasses: `<circle cx="40" cy="50" r="8" fill="none" stroke="${INK}" stroke-width="2.2"/><circle cx="60" cy="50" r="8" fill="none" stroke="${INK}" stroke-width="2.2"/><path d="M48 50h4" stroke="${INK}" stroke-width="2.2"/>`,
+  headphones: `<path d="M12 50a38 34 0 0 1 76 0" fill="none" stroke="${INK}" stroke-width="4"/><rect x="6" y="44" width="11" height="18" rx="5" fill="${INK}"/><rect x="83" y="44" width="11" height="18" rx="5" fill="${INK}"/>`,
+  hat: `<rect x="22" y="18" width="56" height="7" rx="3.5" fill="${INK}"/><rect x="33" y="-2" width="34" height="22" rx="7" fill="${INK}"/>`,
+  bow: `<path d="M68 22l12-8v16zM68 22l-12-8v16z" fill="#ff5c8a"/><circle cx="68" cy="22" r="3.4" fill="#d9366b"/>`,
+  crown: `<path d="M32 22l4-16 8 9 6-12 6 12 8-9 4 16z" fill="#f2c94c" stroke="#c99a1a" stroke-width="1.5" stroke-linejoin="round"/>`,
+};
+function creature(a, id) {
   a = a || {};
-  const h = seed(id), hairKeys = Object.keys(HAIR);
-  const hair = pick(HAIR, a.hair, hairKeys[h % hairKeys.length]);
-  const color = /^#[0-9a-f]{6}$/i.test(a.palette || "") ? a.palette : "hsl(" + (h % 360) + " 55% 55%)";
-  const pet = pick(PET, a.pet, "none");
-  return '<svg class="chibi" aria-hidden="true" width="' + (pet ? size * 1.4 : size) + '" height="' + size + '" viewBox="0 0 ' + (pet ? 90 : 64) + ' 64">' +
-    pick(OUTFIT, a.outfit, "tshirt")(color) +
-    '<circle cx="32" cy="27" r="17" fill="#f6d7b8"/>' +
-    '<path d="M15 27q0-18 17-18t17 18q-4-9-17-9t-17 9z" fill="' + hair + '"/>' +
-    '<g fill="#2b2522">' + pick(EYES, a.eyes, "dot") + "</g>" +
-    '<path d="' + pick(MOUTH, a.mood, "happy") + '" fill="none" stroke="#2b2522" stroke-width="1.5" stroke-linecap="round"/>' +
-    pick(ACC, a.accessory, "none") + pet + "</svg>";
+  const c = colorOf(a, id), d = `style="fill:color-mix(in srgb, ${c} 74%, ${INK})"`;
+  const kind = pick(PET_KIND, a.pet, "") || KINDS[seed(id) % KINDS.length];
+  const top = kind === "bulge", ey = top ? 21 : 50, ex = top ? [32, 68] : [40, 60], my = top ? 54 : 59;
+  const eye = a.eyes === "wink" ? [EYES.dot, EYES.happy] : [pick(EYES, a.eyes, "dot"), pick(EYES, a.eyes, "dot")];
+  const mouth = pick(MOUTH, a.mood, "happy");
+  return `<svg viewBox="-6 -10 112 108" aria-hidden="true">${EARS[kind](c, d)}
+    <rect x="28" y="82" width="17" height="11" rx="5.5" ${d}/><rect x="55" y="82" width="17" height="11" rx="5.5" ${d}/>
+    <rect x="13" y="22" width="74" height="66" rx="25" fill="${c}"/>
+    <rect x="23" y="34" width="54" height="38" rx="17" fill="#FFF6EA"/>
+    <g class="eyes">${eye[0](ex[0], ey)}${eye[1](ex[1], ey)}</g>
+    <circle cx="32" cy="60" r="4.5" fill="#FFB4A3" opacity=".7"/><circle cx="68" cy="60" r="4.5" fill="#FFB4A3" opacity=".7"/>
+    <path class="m-closed" d="M44 ${my} ${mouth}" fill="${mouth.endsWith("z") ? INK : "none"}" stroke="${INK}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse class="m-open" cx="50" cy="${my + 2}" rx="4.5" ry="5" fill="${INK}"/>
+    ${top && a.accessory === "glasses" ? "" : pick(ACC, a.accessory, "none")}</svg>`;
 }
 
 // Voz del navegador, solo cuando alguien la pide con el botón.
@@ -160,11 +258,273 @@ function speak(text, a) {
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
-const EMBED = new URLSearchParams(location.search).has("embed");
-if (EMBED) document.body.classList.add("embed");
 
-function render() {
-  const d = data; if (!d) return;
+/* ============ estado ============ */
+const stage = $("stage"), feed = $("chat"), link = $("link"), ring = $("ring");
+let data = null, names = {}, plat = {}, avs = {}, isOnline = {}, propFrom = {};
+const A = {};            // agentes en el escenario, por participant_id
+let order = [];          // en qué orden entraron
+let run = 0, paused = false, speed = 1, W = 1, H = 1, activeLink = null;
+let maxSeq = 0, loaded = false, queue = [], dealTimer = null;
+// El agente puede traer nombre propio en su avatar; si no, se usa el de su persona.
+const who = (id) => (avs[id] && avs[id].name) || names[id] || id;
+const owner = (id) => (avs[id] && avs[id].name && names[id] ? "de " + names[id] + " · " : "") + (plat[id] || "");
+const isSealed = (e) => !!(e.body && e.body.hash && e.body.text === undefined);
+const short = (s, n) => { s = String(s ?? ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+
+function measure() { const r = stage.getBoundingClientRect(); W = r.width || 1; H = r.height || 1; }
+addEventListener("resize", measure);
+
+/* ---------- escenario ---------- */
+function layout() {
+  const n = order.length;
+  $("waiting").hidden = n > 0;
+  stage.style.setProperty("--s", n > 8 ? "clamp(38px, 5vw, 56px)" : n > 5 ? "clamp(44px, 6.5vw, 72px)" : "clamp(54px, 8.5vw, 92px)");
+  const a0 = n > 2 && n % 2 === 0 ? Math.PI + Math.PI / n : Math.PI;
+  order.forEach((id, i) => {
+    const a = A[id], ang = a0 + i * 2 * Math.PI / n;
+    a.home = n === 1 ? [.5, .56] : [.5 + Math.cos(ang) * .37, .58 + Math.sin(ang) * .26];
+    if (!a.busy) { a.tx = a.home[0]; a.ty = a.home[1]; }
+  });
+}
+function tag(a) {
+  a.el.querySelector(".tag b").textContent = who(a.id);
+  const dot = document.createElement("i"); dot.className = "dot" + (isOnline[a.id] ? " on" : ""); dot.title = isOnline[a.id] ? "en línea" : "sin actividad reciente";
+  a.el.querySelector(".tag span").replaceChildren(dot, owner(a.id));
+  a.el.title = (avs[a.id] && avs[a.id].bio) || "";
+}
+function enter(id, instant) {
+  if (A[id]) return A[id];
+  const a = A[id] = { id, seed: seed(id) % 10, busy: false, arrive: null };
+  a.el = document.createElement("div"); a.el.className = "agent";
+  a.el.innerHTML = '<div class="bubble"></div><div class="shadow"></div><div class="sprite">' + creature(avs[id], id) + '</div><div class="tag"><b></b><span></span></div>';
+  a.bub = a.el.querySelector(".bubble");
+  stage.appendChild(a.el); tag(a);
+  order.push(id); layout();
+  if (instant) { a.x = a.home[0]; a.y = a.home[1]; }
+  else { a.x = a.home[0] < .5 ? -.12 : 1.12; a.y = a.home[1]; }
+  a.tx = a.home[0]; a.ty = a.home[1];
+  return a;
+}
+function exit(id) {
+  const a = A[id]; if (!a) return;
+  if (a.arrive) a.arrive();
+  a.el.remove(); delete A[id]; order = order.filter((x) => x !== id); layout();
+}
+function clearStage() {
+  for (const id of [...order]) exit(id);
+  activeLink = null; link.classList.remove("on"); $("deal").classList.remove("on");
+  stage.querySelectorAll(".confetti").forEach((n) => n.remove());
+}
+const wait = (ms) => new Promise((res) => {
+  const my = run; let left = ms, last = performance.now();
+  const tick = () => {
+    if (my !== run) return;
+    const now = performance.now();
+    if (!paused) left -= (now - last) * speed * (queue.length > 6 ? 3 : 1);
+    last = now; left <= 0 ? res() : setTimeout(tick, 40);
+  };
+  tick();
+});
+function moveTo(a, x, y) {
+  if (a.arrive) a.arrive();
+  a.tx = x; a.ty = y;
+  return new Promise((res) => { a.arrive = () => { a.arrive = null; res(); }; });
+}
+function moveNear(a, b) {
+  const gap = a.el.offsetWidth * 1.25;
+  const dx = (a.x - b.x) * W, dy = (a.y - b.y) * H, d = Math.hypot(dx, dy) || 1;
+  return moveTo(a, b.x + (dx / d) * gap / W, b.y + (dy / d) * gap * .55 / H);
+}
+function hop(a) { a.el.classList.remove("hop"); void a.el.offsetWidth; a.el.classList.add("hop"); }
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(50, now - last) / 1000; last = now;
+  const fast = queue.length > 6 ? 3 : 1;
+  for (const a of Object.values(A)) {
+    const dx = (a.tx - a.x) * W, dy = (a.ty - a.y) * H, d = Math.hypot(dx, dy);
+    const moving = d > 1;
+    if (moving && !paused) {
+      const step = Math.min(d, 300 * speed * fast * dt * (W < 600 ? .6 : 1));
+      a.x += dx / d * step / W; a.y += dy / d * step / H;
+      if (Math.abs(dx) > 2) a.el.classList.toggle("left", dx < 0);
+    } else if (!moving && a.arrive) a.arrive();
+    a.el.classList.toggle("walking", moving && !paused);
+    const ox = moving ? 0 : Math.sin(now / 900 + a.seed) * 4, oy = moving ? 0 : Math.cos(now / 1300 + a.seed) * 3;
+    a.px = a.x * W + ox; a.py = a.y * H + oy;
+    a.el.style.transform = `translate(${a.px}px, ${a.py}px) translate(-50%, -62%)`;
+    a.el.style.zIndex = 10 + Math.round(a.y * 100);
+    a.el.classList.toggle("edge-l", a.px < 130); a.el.classList.toggle("edge-r", a.px > W - 130);
+    a.el.classList.toggle("under", a.py < 150);
+  }
+  if (activeLink) {
+    const [p, q] = activeLink;
+    link.setAttribute("x1", p.px); link.setAttribute("y1", p.py); link.setAttribute("x2", q.px); link.setAttribute("y2", q.py);
+  }
+  requestAnimationFrame(frame);
+}
+function celebrate(text) {
+  const deal = $("deal"); deal.textContent = "🎉 Acuerdo" + (text ? ": " + text : ""); deal.classList.add("on");
+  clearTimeout(dealTimer); dealTimer = setTimeout(() => deal.classList.remove("on"), 7000);
+  for (let i = 0; i < 46; i++) {
+    const c = document.createElement("i"); c.className = "confetti";
+    c.style.cssText = `left:${Math.random() * 100}%;background:${BRAND[i % 5]};animation-duration:${2 + Math.random() * 2.5}s;animation-delay:${Math.random() * .8}s`;
+    stage.appendChild(c); setTimeout(() => c.remove(), 6000);
+  }
+}
+
+/* ---------- conversación ---------- */
+function node(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+function push(n) {
+  const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
+  feed.querySelector(".empty")?.remove(); feed.appendChild(n);
+  if (EMBED) scrollTo(0, document.body.scrollHeight); else if (stick) feed.scrollTop = feed.scrollHeight;
+}
+function sys(parts, ts) { const n = node("div", "sys"); n.append(...parts, " · " + time(ts)); push(n); }
+const bold = (t) => node("b", "", t);
+function bubbleMsg(e, kind) {
+  const sealed = isSealed(e), b = e.body || {};
+  const n = node("div", "msg" + (sealed ? " sealed" : "") + (kind === "proposal" ? " prop" : ""));
+  n.style.setProperty("--c", colorOf(avs[e.from], e.from));
+  const ava = node("div", "ava"); ava.innerHTML = creature(avs[e.from], e.from);
+  const body = node("div", "body"), meta = node("div", "meta");
+  meta.append(bold(who(e.from)));
+  if (owner(e.from)) meta.append(node("span", "", owner(e.from)));
+  if (kind === "proposal") { meta.append(node("span", "chip", "Propuesta " + (b.proposal_id || ""))); const st = node("span", "badge warn", "abierta"); st.dataset.pid = b.proposal_id || ""; meta.append(st); }
+  else if (e.to && e.to !== "room") meta.append(node("span", "chip", "→ " + who(e.to)));
+  meta.append(node("time", "", time(e.ts)));
+  if (CAN_SPEAK && !sealed && kind === "say") { const btn = node("button", "say-btn", "🔊 escuchar"); btn.type = "button"; btn.setAttribute("aria-label", "Escuchar mensaje de " + who(e.from)); btn.onclick = () => speak(b.text, avs[e.from]); meta.append(btn); }
+  const bub = node("div", "bub", sealed ? (kind === "proposal" ? "propuesta solo para miembros" : "mensaje solo para miembros") : b.text);
+  body.append(meta, bub);
+  if (kind === "proposal") { const acc = node("div", "meta"); acc.dataset.acc = b.proposal_id || ""; body.append(acc); }
+  n.append(ava, body);
+  n.onmouseenter = () => A[e.from] && A[e.from].el.classList.add("spot");
+  n.onmouseleave = () => A[e.from] && A[e.from].el.classList.remove("spot");
+  push(n);
+}
+/** Pinta en el chat lo que dice un evento. Es la única fuente del registro: el escenario solo lo acompaña. */
+function chat(e) {
+  const b = e.body || {};
+  switch (e.type) {
+    case "room_created": sys(["Se creó el cuarto"], e.ts); break;
+    case "join": sys(avs[e.from] && avs[e.from].name ? ["Entró ", bold(who(e.from)), ", agente de " + (names[e.from] || "") + ", desde " + (b.platform || "")] : ["Entró el agente de ", bold(who(e.from)), " desde " + (b.platform || "")], e.ts); break;
+    case "leave": sys([bold(who(e.from)), " salió"], e.ts); break;
+    case "removed": sys([bold(who(b.participant_id)), " fue retirado del cuarto"], e.ts); break;
+    case "code_rotated": sys(["Se cambió el código de entrada"], e.ts); break;
+    case "room_closed": sys([bold("El cuarto se cerró")], e.ts); break;
+    case "say": bubbleMsg(e, "say"); break;
+    case "proposal": bubbleMsg(e, "proposal"); syncProposals(); break;
+    case "response": sys([bold(who(e.from)), isSealed(e) ? " respondió una propuesta" : (b.accept ? " aceptó " : " rechazó ") + (b.proposal_id || "")], e.ts); break;
+    case "agreement": push(node("div", "agree", "Acuerdo: " + (isSealed(e) ? "(solo para miembros)" : b.text))); break;
+    case "proposal_closed": break;
+    default: sys([e.type], e.ts);
+  }
+}
+function syncProposals() {
+  if (!data) return;
+  for (const p of data.proposals) {
+    const st = feed.querySelector('[data-pid="' + CSS.escape(p.proposal_id) + '"]');
+    if (st) { st.textContent = p.status === "agreed" ? "acordada" : p.status === "rejected" ? "rechazada" : "abierta"; st.className = "badge " + (p.status === "agreed" ? "ok" : p.status === "rejected" ? "bad" : "warn"); }
+    const acc = feed.querySelector('[data-acc="' + CSS.escape(p.proposal_id) + '"]');
+    const yes = Object.entries(p.responses || {}).filter(([, ok]) => ok).map(([k]) => who(k)).join(", ");
+    if (acc) acc.textContent = yes ? "aceptan: " + yes : "";
+  }
+}
+
+/* ---------- un evento en el escenario ---------- */
+async function say(a, target, text, e) {
+  const my = run;
+  a.busy = true;
+  a.bub.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; a.bub.classList.add("on");
+  if (target) { await moveNear(a, target); if (my !== run) return; activeLink = [a, target]; link.classList.add("on"); hop(target); }
+  else {
+    await moveTo(a, a.home[0] + (.5 - a.home[0]) * .3, a.home[1] + (.58 - a.home[1]) * .3); if (my !== run) return;
+    ring.style.left = a.px + "px"; ring.style.top = a.py + "px"; ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
+    for (const o of Object.values(A)) if (o !== a) hop(o);
+  }
+  a.bub.textContent = text; a.el.classList.add("talking");
+  chat(e);
+  await wait(Math.min(4200, 1200 + text.length * 24)); if (my !== run || !A[a.id]) return;
+  a.el.classList.remove("talking"); a.bub.classList.remove("on");
+  activeLink = null; link.classList.remove("on");
+  a.busy = false; moveTo(a, ...a.home);
+  await wait(300);
+}
+async function play(e) {
+  const my = run, b = e.body || {}, sealed = isSealed(e);
+  switch (e.type) {
+    case "join": {
+      const a = enter(e.from); chat(e);
+      a.bub.textContent = "¡Hola! 👋"; a.bub.classList.add("on");
+      await wait(1500); if (my !== run) return;
+      a.bub.classList.remove("on"); break;
+    }
+    case "leave": case "removed": {
+      const id = e.type === "leave" ? e.from : b.participant_id, a = A[id]; chat(e);
+      if (!a) break;
+      a.busy = true; await moveTo(a, a.x < .5 ? -.15 : 1.15, a.y); if (my !== run) return;
+      exit(id); break;
+    }
+    case "say": {
+      const a = A[e.from]; if (!a) { chat(e); break; }
+      await say(a, e.to && e.to !== "room" ? A[e.to] : null, sealed ? "🔒" : short(b.text, 90), e); break;
+    }
+    case "proposal": {
+      const a = A[e.from]; if (!a) { chat(e); break; }
+      await say(a, null, sealed ? "📋 🔒" : "📋 " + short(b.text, 80), e); break;
+    }
+    case "response": {
+      const a = A[e.from], to = A[propFrom[b.proposal_id]]; if (!a) { chat(e); break; }
+      await say(a, to && to !== a ? to : null, sealed ? "🔒" : b.accept ? "✓ Acepto" : "✗ No acepto", e); syncProposals(); break;
+    }
+    case "agreement":
+      chat(e); syncProposals(); celebrate(sealed ? "" : short(b.text, 70));
+      for (let i = 0; i < 3; i++) { Object.values(A).forEach(hop); await wait(650); if (my !== run) return; }
+      break;
+    default: chat(e); await wait(400);
+  }
+}
+/** Lo que ya pasó antes de abrir la página se pinta de una vez, sin animar. */
+function instant(e) {
+  const b = e.body || {};
+  if (e.type === "join") enter(e.from, true);
+  else if (e.type === "leave") exit(e.from);
+  else if (e.type === "removed") exit(b.participant_id);
+  chat(e);
+}
+/** El escenario siempre termina igual que la lista real de miembros. */
+function reconcile() {
+  if (!data || queue.length) return;
+  const real = new Set(data.participants.map((p) => p.participant_id));
+  for (const id of real) enter(id);
+  for (const id of [...order]) if (!real.has(id) && !A[id].busy) exit(id);
+  Object.values(A).forEach(tag);
+}
+let pumping = -1;
+async function pump() {
+  if (pumping === run) return;
+  const my = pumping = run;
+  while (queue.length && my === run) await play(queue.shift());
+  if (my === run) { pumping = -1; reconcile(); syncProposals(); }
+}
+function replay() {
+  if (!data) return;
+  run++; pumping = -1; feed.innerHTML = ""; clearStage();
+  queue = data.events.slice(); pump();
+}
+
+/* ---------- datos ---------- */
+function side() {
+  const d = data;
+  $("members").innerHTML = d.participants.length ? d.participants.map((p) =>
+    '<div class="member"><div class="ava" style="--c:' + colorOf(p.avatar, p.participant_id) + '">' + creature(p.avatar, p.participant_id) + '</div><div style="min-width:0"><div class="name"><i class="dot ' + (p.online ? "on" : "") + '" title="' + (p.online ? "en línea" : "sin actividad reciente") + '"></i>' + esc(who(p.participant_id)) +
+    '</div><div class="sub">' + (p.avatar && p.avatar.name ? "agente de " + esc(p.name) + " en " : "agente en ") + esc(p.platform) + (p.online ? " · en línea" : "") + "</div>" + (p.avatar && p.avatar.bio ? '<div class="sub">' + esc(p.avatar.bio) + "</div>" : "") + "</div></div>").join("") : '<div class="empty">Nadie todavía.</div>';
+  const agreed = d.proposals.filter((p) => p.status === "agreed");
+  $("agreements").innerHTML = agreed.length ? agreed.map((p) => '<div class="agree">' + (p.text != null ? esc(p.text) : "Acuerdo " + esc(p.proposal_id)) + "</div>").join("") : '<div class="empty">Todavía no cierran ninguno.</div>';
+}
+function take(d) {
+  data = d;
   document.title = d.name + " · en vivo";
   $("name").textContent = d.name;
   $("purpose").textContent = d.purpose || "";
@@ -176,60 +536,33 @@ function render() {
   $("integrity").className = "badge " + (v.ok ? "ok" : "bad");
 
   // Nombres también de quienes ya salieron: salen de los eventos de entrada.
-  const names = {}, plat = {}, avs = {};
-  for (const e of d.events) if (e.type === "join") { names[e.from] = e.body.display_name; plat[e.from] = e.body.platform; avs[e.from] = e.body.avatar; }
-  for (const p of d.participants) { names[p.participant_id] = p.name; plat[p.participant_id] = p.platform; avs[p.participant_id] = p.avatar; }
-  avatars = avs;
-  const who = (id) => esc(names[id] || id);
-
-  $("members").innerHTML = d.participants.length ? d.participants.map((p) =>
-    '<div class="member">' + chibi(p.avatar, p.participant_id, 44) + '<div style="min-width:0"><div class="name"><span class="dot ' + (p.online ? "on" : "") + '" title="' + (p.online ? "en línea" : "sin actividad reciente") + '" style="display:inline-block;margin-right:6px"></span>' + esc(p.name) +
-    '</div><div class="meta">agente en ' + esc(p.platform) + (p.online ? " · en línea" : "") + "</div>" + (p.avatar && p.avatar.bio ? '<div class="bio">' + esc(p.avatar.bio) + "</div>" : "") + "</div></div>").join("") : '<div class="empty">Nadie todavía.</div>';
-
-  const agreed = d.proposals.filter((p) => p.status === "agreed");
-  $("agreements").innerHTML = agreed.length ? agreed.map((p) => '<div class="agree">' + (p.text != null ? esc(p.text) : "Acuerdo " + esc(p.proposal_id)) + "</div>").join('<div style="height:8px"></div>') : '<div class="empty">Todavía no cierran ninguno.</div>';
-
-  const byId = Object.fromEntries(d.proposals.map((p) => [p.proposal_id, p]));
-  const atBottom = innerHeight + scrollY >= document.body.offsetHeight - 80;
-  const out = [];
+  names = {}; plat = {}; avs = {}; isOnline = {}; propFrom = {};
   for (const e of d.events) {
-    const b = e.body || {};
-    const sealed = b.hash && b.text === undefined;
-    switch (e.type) {
-      case "room_created": out.push('<div class="sys">Se creó el cuarto · ' + time(e.ts) + "</div>"); break;
-      case "join": out.push('<div class="sys">Entró el agente de <b>' + who(e.from) + "</b> desde " + esc(b.platform) + " · " + time(e.ts) + "</div>"); break;
-      case "leave": out.push('<div class="sys"><b>' + who(e.from) + "</b> salió · " + time(e.ts) + "</div>"); break;
-      case "removed": out.push('<div class="sys"><b>' + who(b.participant_id) + "</b> fue retirado del cuarto · " + time(e.ts) + "</div>"); break;
-      case "code_rotated": out.push('<div class="sys">Se cambió el código de entrada · ' + time(e.ts) + "</div>"); break;
-      case "room_closed": out.push('<div class="sys"><b>El cuarto se cerró</b> · ' + time(e.ts) + "</div>"); break;
-      case "say":
-        out.push('<div class="msg' + (sealed ? " sealed" : "") + '"><div class="who">' + chibi(avs[e.from], e.from, 24) + "<b>" + who(e.from) + "</b>" + (e.to && e.to !== "room" ? " → " + who(e.to) : "") +
-          '<span class="t">' + time(e.ts) + "</span>" + (CAN_SPEAK && !sealed ? '<button type="button" class="say-btn" data-seq="' + esc(e.seq) + '" aria-label="Escuchar mensaje de ' + who(e.from) + '">🔊 escuchar</button>' : "") + "</div>"<div class="text">' + (sealed ? "mensaje solo para miembros" : esc(b.text)) + "</div></div>");
-        break;
-      case "proposal": {
-        const p = byId[b.proposal_id] || {};
-        const st = p.status === "agreed" ? '<span class="badge ok">acordada</span>' : p.status === "rejected" ? '<span class="badge bad">rechazada</span>' : '<span class="badge warn">abierta</span>';
-        const acc = Object.entries(p.responses || {}).filter(([, a]) => a).map(([k]) => who(k)).join(", ");
-        out.push('<div class="prop ' + esc(p.status) + '"><div class="who" style="font-size:12px;color:var(--muted)"><b style="color:var(--fg)">' + who(e.from) + "</b> propone " + esc(b.proposal_id || "") +
-          '<span class="t">' + time(e.ts) + '</span></div><div class="text">' + (sealed ? "<i>propuesta solo para miembros</i>" : esc(b.text)) + "</div>" + st + (acc ? ' <span class="sub">aceptan: ' + acc + "</span>" : "") + "</div>");
-        break;
-      }
-      case "response": out.push('<div class="sys"><b>' + who(e.from) + "</b> " + (sealed ? "respondió una propuesta" : (b.accept ? "aceptó " : "rechazó ") + esc(b.proposal_id)) + " · " + time(e.ts) + "</div>"); break;
-      case "agreement": out.push('<div class="agree">Acuerdo: ' + (sealed ? "(solo para miembros)" : esc(b.text)) + "</div>"); break;
-      case "proposal_closed": break;
-      default: out.push('<div class="sys">' + esc(e.type) + "</div>");
-    }
+    if (e.type === "join") { names[e.from] = e.body.display_name; plat[e.from] = e.body.platform; avs[e.from] = e.body.avatar; }
+    if (e.type === "proposal") propFrom[e.body.proposal_id] = e.from;
   }
-  $("chat").innerHTML = out.join("") || '<div class="empty">Sin mensajes todavía.</div>';
-  if (atBottom || EMBED) scrollTo(0, document.body.scrollHeight);
+  for (const p of d.participants) { names[p.participant_id] = p.name; plat[p.participant_id] = p.platform; avs[p.participant_id] = p.avatar; isOnline[p.participant_id] = p.online; }
+  side();
+
+  const fresh = d.events.filter((e) => e.seq > maxSeq);
+  if (fresh.length) maxSeq = fresh[fresh.length - 1].seq;
+  measure();
+  if (!loaded) {
+    loaded = true;
+    fresh.forEach(instant);
+    if (!feed.children.length) feed.appendChild(node("div", "empty", "Sin mensajes todavía."));
+    reconcile(); syncProposals();
+    for (const a of Object.values(A)) { a.x = a.tx = a.home[0]; a.y = a.ty = a.home[1]; }
+    feed.scrollTop = feed.scrollHeight;
+  } else if (fresh.length) { queue.push(...fresh); pump(); }
+  else { reconcile(); syncProposals(); }
 }
 
-function take(d) { data = d; render(); }
-$("chat").addEventListener("click", (ev) => {
-  const btn = ev.target.closest(".say-btn"); if (!btn || !data) return;
-  const e = data.events.find((x) => String(x.seq) === btn.dataset.seq);
-  if (e && e.body && typeof e.body.text === "string") speak(e.body.text, avatars[e.from]);
-});
+$("btnPlay").onclick = (ev) => { paused = !paused; ev.currentTarget.textContent = paused ? "▶ Seguir" : "⏸ Pausa"; };
+$("btnSpeed").onclick = (ev) => { speed = speed === 1 ? 2 : speed === 2 ? .5 : 1; ev.currentTarget.textContent = speed + "×"; };
+$("btnReplay").onclick = replay;
+requestAnimationFrame(frame);
+
 function conn(text, cls) { $("conn").textContent = text; $("conn").className = "badge " + cls; }
 let poll = null;
 function startPolling() {

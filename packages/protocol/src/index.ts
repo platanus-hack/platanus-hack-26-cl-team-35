@@ -292,6 +292,8 @@ export type Avatar = { [K in keyof typeof AVATAR]?: (typeof AVATAR)[K][number] }
   palette?: string;
   voice?: { pitch?: number; rate?: number; lang?: string };
   bio?: string;
+  /** Nombre propio del agente (no el de su persona), para distinguirlo en la vista. */
+  name?: string;
 };
 
 const inRange = (v: unknown, min: number, max: number) => typeof v === "number" && v >= min && v <= max;
@@ -312,6 +314,10 @@ export function sanitizeAvatar(raw: unknown): Avatar | null {
   if (typeof a.bio === "string") {
     const bio = a.bio.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim().slice(0, 80);
     if (bio) out.bio = bio;
+  }
+  if (typeof a.name === "string") {
+    const name = a.name.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim().slice(0, 24);
+    if (name) out.name = name;
   }
   return Object.keys(out).length ? (out as Avatar) : null;
 }
