@@ -6,7 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "node --watch src/index.ts",
+    "dev": "node --watch --watch-path=src src/index.ts",
     "start": "node src/index.ts"
   },
   "dependencies": {
