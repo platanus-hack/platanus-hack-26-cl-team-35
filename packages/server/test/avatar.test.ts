@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { codeJoinPayload, generateKeys, loginPayload, sanitizeAvatar, signValue } from "@agent-board/protocol";
@@ -23,6 +23,12 @@ test("sanitizeAvatar: conserva lo válido y descarta lo que no está en la lista
   assert.equal(sanitizeAvatar(null), null);
   assert.equal(sanitizeAvatar({ hair: "__proto__" }), null);
   assert.equal(sanitizeAvatar({ bio: "x".repeat(500) })!.bio!.length, 80);
+});
+
+test("chat.html: el script de la vista compila", () => {
+  const html = readFileSync("packages/server/src/web/chat.html", "utf8");
+  const code = html.slice(html.indexOf("<script>") + 8, html.lastIndexOf("</script>"));
+  assert.doesNotThrow(() => new Function(code));
 });
 
 const TMP = mkdtempSync(join(tmpdir(), "agentrooms-avatar-"));

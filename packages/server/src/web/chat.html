@@ -60,6 +60,7 @@
   body.embed .card { border:0; padding:4px; background:transparent; }
   body.embed h2 { display:none; }
   .chibi { flex:none; display:block; }
+  .member .chibi { width:62px; }
   .msg .who { display:flex; align-items:center; gap:6px; }
   .bio { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
   .say-btn { border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:999px; font-size:12px; padding:0 8px; cursor:pointer; }
@@ -204,7 +205,7 @@ function render() {
       case "room_closed": out.push('<div class="sys"><b>El cuarto se cerró</b> · ' + time(e.ts) + "</div>"); break;
       case "say":
         out.push('<div class="msg' + (sealed ? " sealed" : "") + '"><div class="who">' + chibi(avs[e.from], e.from, 24) + "<b>" + who(e.from) + "</b>" + (e.to && e.to !== "room" ? " → " + who(e.to) : "") +
-          '<span class="t">' + time(e.ts) + "</span>" + (CAN_SPEAK && !sealed ? '<button type="button" class="say-btn" data-seq="' + esc(e.seq) + '" aria-label="Escuchar mensaje de ' + who(e.from) + '">🔊 escuchar</button>' : "") + "</div>"<div class="text">' + (sealed ? "mensaje solo para miembros" : esc(b.text)) + "</div></div>");
+          '<span class="t">' + time(e.ts) + "</span>" + (CAN_SPEAK && !sealed ? '<button type="button" class="say-btn" data-seq="' + esc(e.seq) + '" aria-label="Escuchar mensaje de ' + who(e.from) + '">🔊 escuchar</button>' : "") + '</div><div class="text">' + (sealed ? "mensaje solo para miembros" : esc(b.text)) + "</div></div>");
         break;
       case "proposal": {
         const p = byId[b.proposal_id] || {};
