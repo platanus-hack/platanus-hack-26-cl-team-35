@@ -9,7 +9,7 @@
     "dev": "npm run dev -w @agent-board/server",
     "start": "npm start -w @agent-board/server",
     "build": "npm run build -w agentroom",
-    "test": "npm run build && node --test packages/server/test/ packages/client/test/ packages/bots/test/ packages/core/test/",
+    "test": "npm run build && node --test packages/*/test/*.test.ts",
     "scenario": "npm run build && node packages/bots/src/scenario.ts"
   },
   "devDependencies": {
