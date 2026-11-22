@@ -60,7 +60,12 @@
   body.embed .card { border:0; padding:4px; background:transparent; }
   body.embed h2 { display:none; }
   .chibi { flex:none; display:block; }
-  .member .chibi { width:62px; }
+  .scene-card { margin-bottom:16px; }
+  .scene { position:relative; max-width:720px; margin:0 auto; }
+  .scene canvas { display:block; width:100%; height:auto; aspect-ratio:480/330; }
+  .bubble { position:absolute; transform:translate(-50%,-100%); max-width:38%; background:#fffdf8; color:#2d3160; border:1.5px solid #2d3160; border-radius:10px; padding:2px 8px; font-size:12px; line-height:1.35; box-shadow:2px 2px 0 rgba(45,49,96,.25); overflow-wrap:anywhere; pointer-events:none; }
+  .bubble::after { content:""; position:absolute; left:50%; bottom:-6px; width:8px; height:8px; background:#fffdf8; border:1.5px solid #2d3160; border-top:0; border-left:0; transform:translateX(-50%) rotate(45deg); }
+  body.embed .scene-card { display:none; }
   .msg .who { display:flex; align-items:center; gap:6px; }
   .bio { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
   .say-btn { border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:999px; font-size:12px; padding:0 8px; cursor:pointer; }
@@ -82,6 +87,7 @@
       <span class="badge plain" id="integrity">log</span>
     </div>
   </div>
+  <div class="card scene-card"><h2>El cuarto</h2><div class="scene"><canvas id="sceneCanvas" role="img" aria-label="Vista del cuarto con sus agentes"></canvas><div id="bubbles"></div></div></div>
   <div class="grid">
     <div class="side">
       <div class="card"><h2>En el cuarto</h2><div id="members"></div></div>
@@ -101,54 +107,241 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<
 const time = (ts) => new Date(ts).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
 let data = null, avatars = {};
 
-// Chibi armado solo con piezas propias. Cada rasgo se busca en un mapa: lo que no esté, cae al valor por defecto.
-const HAIR = { black:"#2b2522", brown:"#6b4226", blonde:"#e8c06a", red:"#b5462c", pink:"#ff8fb1", blue:"#5b8def", green:"#4fae7b", purple:"#9b6ad6", white:"#e9e6df" };
+// Cuarto y chibis pintados en canvas con trazos de pastel. Solo piezas propias: cada rasgo se busca en un mapa
+// y lo que no esté cae al valor por defecto. La textura sale de semillas fijas, así que no cambia entre renders.
+const seed = (id) => [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const rng = (s) => () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+// Paleta por cuarto: cielo de los retratos, muros, piso, alfombra y plantas.
+const PALETTES = [
+  { sky:["#f6c3a6", "#f7e2c6", "#8b9be0", "#9fd8d2", "#f2a99a"], wallL:"#8b9be0", wallR:"#7383cc", floor:["#f6c3a6", "#efb390"], rug:"#7fc9c4", leaf:"#6fae8c" },
+  { sky:["#bfe3c8", "#f7e8c6", "#8fc7b8", "#f2c79a", "#e8a58f"], wallL:"#7fb59a", wallR:"#6a9f85", floor:["#ecd9ad", "#dfc796"], rug:"#e8907a", leaf:"#4f9a73" },
+  { sky:["#3f4a8a", "#8b9be0", "#f2a99a", "#9fd8d2", "#2d3160"], wallL:"#4b56a0", wallR:"#3d4789", floor:["#e2b9a4", "#d4a892"], rug:"#f0bf6a", leaf:"#7fc9a4" },
+  { sky:["#d9c4ee", "#f7e2c6", "#b59bd8", "#f6c3a6", "#9fd8d2"], wallL:"#b59bd8", wallR:"#9f84c6", floor:["#f7e2c6", "#efd3b0"], rug:"#e8907a", leaf:"#7fb08a" },
+  { sky:["#9fd8d2", "#f7e2c6", "#7fc9c4", "#f2a99a", "#8b9be0"], wallL:"#7fc9c4", wallR:"#68b3ae", floor:["#f7e2c6", "#f0d0a8"], rug:"#f2a99a", leaf:"#5f9e86" },
+];
+const PAL = PALETTES[seed(ROOM) % PALETTES.length];
+const INK = "#2d3160", SKIN = "#f6d2b4";
+const HAIR = { black:"#2e2b3f", brown:"#7a4b33", blonde:"#efc777", red:"#c4563c", pink:"#f39aae", blue:"#6f8fe0", green:"#5fae8f", purple:"#9c7ad6", white:"#efe6dc" };
+const CLOTH = ["#e8907a", "#7d8ecf", "#7fc9c4", "#f0bf6a", "#c79bd8", "#86b98a"];
+const O = (x, y, r) => "M" + (x - r) + " " + y + "a" + r + " " + r + " 0 1 0 " + 2 * r + " 0a" + r + " " + r + " 0 1 0 " + -2 * r + " 0";
+const BODY = "M14 64v-8q0-12 18-12t18 12v8z";
+// Cada pieza: [path SVG, color o "c" (color del agente), modo]. f = relleno al pastel, d = relleno liso, s = línea.
 const EYES = {
-  dot: '<circle cx="26" cy="28" r="2.2"/><circle cx="38" cy="28" r="2.2"/>',
-  sparkle: '<circle cx="26" cy="28" r="3"/><circle cx="38" cy="28" r="3"/><circle cx="27" cy="27" r="1" fill="#fff"/><circle cx="39" cy="27" r="1" fill="#fff"/>',
-  sleepy: '<path d="M23 28h6M35 28h6" stroke="#2b2522" stroke-width="1.6" stroke-linecap="round"/>',
-  wink: '<circle cx="26" cy="28" r="2.4"/><path d="M35 28q3-3 6 0" fill="none" stroke="#2b2522" stroke-width="1.6" stroke-linecap="round"/>',
-  happy: '<path d="M23 29q3-4 6 0M35 29q3-4 6 0" fill="none" stroke="#2b2522" stroke-width="1.6" stroke-linecap="round"/>',
+  dot: [[O(26, 28, 2.2), INK, "d"], [O(38, 28, 2.2), INK, "d"]],
+  sparkle: [[O(26, 28, 3), INK, "d"], [O(38, 28, 3), INK, "d"], [O(27, 27, 1), "#fff", "d"], [O(39, 27, 1), "#fff", "d"]],
+  sleepy: [["M23 28h6M35 28h6", INK, "s"]],
+  wink: [[O(26, 28, 2.4), INK, "d"], ["M35 28q3-3 6 0", INK, "s"]],
+  happy: [["M23 29q3-4 6 0M35 29q3-4 6 0", INK, "s"]],
 };
 const MOUTH = { happy:"M28 34q4 4 8 0", neutral:"M29 35h6", focused:"M29 35q3-1 6 0", excited:"M28 33q4 6 8 0z", calm:"M29 34q3 2 6 0" };
 const OUTFIT = {
-  hoodie: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="' + c + '"/><path d="M28 46l4 6 4-6" fill="none" stroke="#fff" stroke-width="1.2"/>',
-  suit: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="' + c + '"/><path d="M27 44l5 9 5-9z" fill="#fff"/><path d="M31 47h2l1 8-2 2-2-2z" fill="#b3261e"/>',
-  tshirt: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="' + c + '"/>',
-  dress: (c) => '<path d="M22 46q10-4 20 0l8 18H14z" fill="' + c + '"/>',
-  lab: (c) => '<path d="M14 64v-8q0-12 18-12t18 12v8z" fill="#f4f4f2" stroke="#d6d4cc"/><path d="M28 44l4 8 4-8z" fill="' + c + '"/>',
+  hoodie: [[BODY, "c", "f"], ["M28 46l4 6 4-6", "#fff", "s"]],
+  suit: [[BODY, "c", "f"], ["M27 44l5 9 5-9z", "#f7f1e8", "f"], ["M31 47h2l1 8-2 2-2-2z", "#c4473f", "f"]],
+  tshirt: [[BODY, "c", "f"]],
+  dress: [["M22 46q10-4 20 0l8 18H14z", "c", "f"]],
+  lab: [[BODY, "#f4efe6", "f"], ["M28 44l4 8 4-8z", "c", "f"]],
 };
 const ACC = {
-  none: "",
-  headphones: '<path d="M14 28a18 18 0 0 1 36 0" fill="none" stroke="#333" stroke-width="2.5"/><rect x="11" y="26" width="6" height="9" rx="2" fill="#333"/><rect x="47" y="26" width="6" height="9" rx="2" fill="#333"/>',
-  glasses: '<circle cx="26" cy="28" r="4.5" fill="none" stroke="#333" stroke-width="1.4"/><circle cx="38" cy="28" r="4.5" fill="none" stroke="#333" stroke-width="1.4"/><path d="M30.5 28h3" stroke="#333" stroke-width="1.4"/>',
-  hat: '<path d="M16 15h32l-3 3H19z" fill="#3b3b3b"/><rect x="22" y="4" width="20" height="12" rx="3" fill="#3b3b3b"/>',
-  bow: '<path d="M40 11l6-4v8zM40 11l-6-4v8z" fill="#ff5c8a"/><circle cx="40" cy="11" r="1.8" fill="#d9366b"/>',
-  crown: '<path d="M22 13l3-8 4 5 3-6 3 6 4-5 3 8z" fill="#f2c94c" stroke="#c99a1a"/>',
+  none: [],
+  headphones: [["M14 28a18 18 0 0 1 36 0", "#3a3d5c", "s"], ["M11 26h6v9h-6z", "#3a3d5c", "f"], ["M47 26h6v9h-6z", "#3a3d5c", "f"]],
+  glasses: [[O(26, 28, 4.5) + O(38, 28, 4.5) + "M30.5 28h3", INK, "s"]],
+  hat: [["M16 15h32l-3 3H19z", "#3a3d5c", "f"], ["M22 4h20v12H22z", "#3a3d5c", "f"]],
+  bow: [["M40 11l6-4v8zM40 11l-6-4v8z", "#f27a9b", "f"]],
+  crown: [["M22 13l3-8 4 5 3-6 3 6 4-5 3 8z", "#f0c45a", "f"]],
 };
 const PET = {
-  none: "",
-  axolotl: '<ellipse cx="74" cy="56" rx="8" ry="5" fill="#ffb3c7"/><path d="M66 52l-3-3M66 55h-4M82 52l3-3M82 55h4" stroke="#ff7aa2" stroke-width="1.5"/><circle cx="72" cy="55" r=".9"/><circle cx="76" cy="55" r=".9"/>',
-  cat: '<circle cx="74" cy="56" r="6" fill="#9b9a93"/><path d="M69 52l1-5 3 3zM79 52l-1-5-3 3z" fill="#9b9a93"/><circle cx="72" cy="56" r=".9"/><circle cx="76" cy="56" r=".9"/>',
-  dog: '<circle cx="74" cy="56" r="6" fill="#c08a55"/><ellipse cx="68" cy="55" rx="2" ry="4" fill="#7a5233"/><ellipse cx="80" cy="55" rx="2" ry="4" fill="#7a5233"/><circle cx="72" cy="55" r=".9"/><circle cx="76" cy="55" r=".9"/>',
-  shrimp: '<path d="M68 58q2-10 12-6q-2 2-5 1q2 3-1 6q-3 2-6-1" fill="#ff8a5c"/><path d="M80 52l4-4M80 52l5-1" stroke="#ff8a5c" stroke-width="1"/><circle cx="78" cy="53" r=".8"/>',
-  bird: '<circle cx="74" cy="56" r="5.5" fill="#f2c94c"/><path d="M79 56l4 1-4 1z" fill="#e07b00"/><circle cx="75.5" cy="54.5" r=".9"/>',
+  none: [],
+  axolotl: [["M66 52l-3-3M66 55h-4M82 52l3-3M82 55h4", "#f27a9b", "s"], ["M66 56a8 5 0 1 0 16 0a8 5 0 1 0-16 0", "#f7b3c6", "f"], [O(72, 55, 0.9) + O(76, 55, 0.9), INK, "d"]],
+  cat: [["M69 52l1-5 3 3zM79 52l-1-5-3 3z", "#9d9bb0", "f"], [O(74, 56, 6), "#9d9bb0", "f"], [O(72, 56, 0.9) + O(76, 56, 0.9), INK, "d"]],
+  dog: [[O(74, 56, 6), "#c99263", "f"], ["M66 55a2 4 0 1 0 4 0a2 4 0 1 0-4 0M78 55a2 4 0 1 0 4 0a2 4 0 1 0-4 0", "#7d5640", "f"], [O(72, 55, 0.9) + O(76, 55, 0.9), INK, "d"]],
+  shrimp: [["M68 58q2-10 12-6q-2 2-5 1q2 3-1 6q-3 2-6-1", "#f28a62", "f"], ["M80 52l4-4M80 52l5-1", "#f28a62", "s"], [O(78, 53, 0.8), INK, "d"]],
+  bird: [[O(74, 56, 5.5), "#f0c45a", "f"], ["M79 56l4 1-4 1z", "#e07b2a", "f"], [O(75.5, 54.5, 0.9), INK, "d"]],
 };
+const LEGS = [["M24 62h6v9h-6zM34 62h6v9h-6z", "#4a4f7a", "f"], ["M22 70h9v4h-9zM33 70h9v4h-9z", "#3a2f2a", "f"]];
 const pick = (map, v, fallback) => Object.prototype.hasOwnProperty.call(map, v) ? map[v] : map[fallback];
-const seed = (id) => [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
-function chibi(a, id, size) {
+function tint(hex, k) {
+  const n = parseInt(hex.slice(1), 16), t = k > 0 ? 255 : 40;
+  const m = (c) => Math.round(c + (t - c) * Math.abs(k));
+  return "#" + [n >> 16, (n >> 8) & 255, n & 255].map((c) => m(c).toString(16).padStart(2, "0")).join("");
+}
+// Relleno de pastel: base suave y luego trazos cortos en diagonal con el color aclarado u oscurecido.
+// `n` es la densidad por cada 64x64 unidades del recuadro.
+function crayon(ctx, path, color, rnd, box, base = true, n = 260) {
+  ctx.save(); ctx.clip(path);
+  if (base) { ctx.globalAlpha = 0.9; ctx.fillStyle = color; ctx.fill(path); }
+  ctx.lineCap = "round";
+  const count = Math.round(n * box[2] * box[3] / 4096);
+  for (let i = 0; i < count; i++) {
+    const x = box[0] + rnd() * box[2], y = box[1] + rnd() * box[3], a = -0.85 + (rnd() - 0.5) * 0.5, l = 2 + rnd() * 4;
+    ctx.globalAlpha = 0.35 + rnd() * 0.45;
+    ctx.strokeStyle = tint(color, (rnd() - 0.45) * 0.7);
+    ctx.lineWidth = 0.5 + rnd() * 0.9;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.stroke();
+  }
+  ctx.restore();
+}
+function sketch(ctx, path, color, width, rnd, alpha = 0.8) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineCap = ctx.lineJoin = "round";
+  for (let i = 0; i < 2; i++) {
+    ctx.globalAlpha = i ? alpha * 0.45 : alpha; ctx.lineWidth = width * (i ? 0.7 : 1);
+    ctx.setTransform(ctx.getTransform().translate((rnd() - 0.5) * 0.6, (rnd() - 0.5) * 0.6));
+    ctx.stroke(path);
+  }
+  ctx.restore();
+}
+function paintParts(ctx, parts, color, rnd, box) {
+  for (const [d, c, mode] of parts) {
+    const p = new Path2D(d), col = c === "c" ? color : c;
+    if (mode === "s") { sketch(ctx, p, col, 1.5, rnd); continue; }
+    if (mode === "d") { ctx.save(); ctx.globalAlpha = col === "#f2a3a3" ? 0.45 : 0.95; ctx.fillStyle = col; ctx.fill(p); ctx.restore(); continue; }
+    crayon(ctx, p, col, rnd, box);
+    sketch(ctx, p, INK, 0.9, rnd);
+  }
+}
+/** Dibuja al agente en coordenadas de 90x64 (busto) o 90x76 (cuerpo entero, pies en y=74). */
+function paintFigure(ctx, a, id, full) {
   a = a || {};
-  const h = seed(id), hairKeys = Object.keys(HAIR);
-  const hair = pick(HAIR, a.hair, hairKeys[h % hairKeys.length]);
-  const color = /^#[0-9a-f]{6}$/i.test(a.palette || "") ? a.palette : "hsl(" + (h % 360) + " 55% 55%)";
-  const pet = pick(PET, a.pet, "none");
-  return '<svg class="chibi" aria-hidden="true" width="' + (pet ? size * 1.4 : size) + '" height="' + size + '" viewBox="0 0 ' + (pet ? 90 : 64) + ' 64">' +
-    pick(OUTFIT, a.outfit, "tshirt")(color) +
-    '<circle cx="32" cy="27" r="17" fill="#f6d7b8"/>' +
-    '<path d="M15 27q0-18 17-18t17 18q-4-9-17-9t-17 9z" fill="' + hair + '"/>' +
-    '<g fill="#2b2522">' + pick(EYES, a.eyes, "dot") + "</g>" +
-    '<path d="' + pick(MOUTH, a.mood, "happy") + '" fill="none" stroke="#2b2522" stroke-width="1.5" stroke-linecap="round"/>' +
-    pick(ACC, a.accessory, "none") + pet + "</svg>";
+  const s = seed(id), rnd = rng(s);
+  const color = /^#[0-9a-f]{6}$/i.test(a.palette || "") ? a.palette : CLOTH[s % CLOTH.length];
+  const hairKeys = Object.keys(HAIR), hair = pick(HAIR, a.hair, hairKeys[s % hairKeys.length]);
+  const box = [0, 0, 64, 76];
+  if (full) paintParts(ctx, LEGS, color, rnd, box);
+  paintParts(ctx, [...pick(OUTFIT, a.outfit, "tshirt"), [O(32, 27, 17), SKIN, "f"],
+    ["M15 27q0-18 17-18t17 18q-4-9-17-9t-17 9z", hair, "f"], ...pick(EYES, a.eyes, "dot"),
+    [pick(MOUTH, a.mood, "happy"), INK, "s"], ["M20 32a3 2 0 1 0 6 0a3 2 0 1 0-6 0M38 32a3 2 0 1 0 6 0a3 2 0 1 0-6 0", "#f2a3a3", "d"],
+    ...pick(ACC, a.accessory, "none")], color, rnd, box);
+  ctx.save(); if (full) ctx.translate(0, 14);
+  paintParts(ctx, pick(PET, a.pet, "none"), color, rnd, [64, 40, 26, 30]);
+  ctx.restore();
+}
+
+// Retrato para la lista y los mensajes: busto sobre un cielo con la paleta del cuarto.
+const chibiCache = new Map(), pendingChibis = new Map();
+function chibi(a, id, size) {
+  const key = String(id) + "|" + size + "|" + JSON.stringify(a || {}), dpr = Math.min(devicePixelRatio || 1, 3);
+  if (!chibiCache.has(key)) {
+    const c = document.createElement("canvas"), ctx = c.getContext("2d"), k = size * dpr / 64;
+    c.width = Math.round(size * 90 / 64 * dpr); c.height = Math.round(size * dpr);
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    const s = seed(id), rnd = rng(s ^ 0x5bd1), bg = new Path2D(O(32, 33, 31));
+    crayon(ctx, bg, PAL.sky[s % PAL.sky.length], rnd, [0, 0, 64, 64]);
+    for (let i = 1; i < PAL.sky.length; i++) crayon(ctx, bg, PAL.sky[(s + i) % PAL.sky.length], rnd, [0, (i - 1) * 14, 64, 26], false, 160);
+    paintFigure(ctx, a, id, false);
+    chibiCache.set(key, c);
+  }
+  const k = Math.random().toString(36).slice(2);
+  pendingChibis.set(k, key);
+  const c = chibiCache.get(key);
+  return '<canvas class="chibi" aria-hidden="true" data-chibi="' + k + '" width="' + c.width + '" height="' + c.height + '" style="width:' + Math.round(size * 90 / 64) + "px;height:" + size + 'px"></canvas>';
+}
+function placeChibis() {
+  for (const el of document.querySelectorAll("canvas[data-chibi]")) {
+    const src = chibiCache.get(pendingChibis.get(el.dataset.chibi));
+    if (src) el.getContext("2d").drawImage(src, 0, 0);
+    el.removeAttribute("data-chibi");
+  }
+  pendingChibis.clear();
+}
+
+// Escena isométrica: piso de 6x6 baldosas, dos muros y muebles fijos. Cada agente tiene su baldosa.
+const SW = 480, SH = 330, N = 6, TW = 32, TH = 16, OX = SW / 2, OY = 120;
+const tileAt = (i, j) => [OX + (i - j) * TW, OY + (i + j) * TH + TH];
+const PROPS = { "0,5": "plant", "5,0": "lamp", "0,0": "plant" };
+const SPOTS = [[2, 1], [1, 3], [4, 2], [3, 4], [2, 3], [4, 0], [0, 2], [5, 3], [3, 2], [1, 5], [5, 5], [3, 0]];
+for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (!PROPS[i + "," + j] && !SPOTS.some(([a, b]) => a === i && b === j)) SPOTS.push([i, j]);
+const poly = (pts) => { const p = new Path2D(); pts.forEach(([x, y], i) => i ? p.lineTo(x, y) : p.moveTo(x, y)); p.closePath(); return p; };
+const diamond = (x, y, w = TW, h = TH) => poly([[x, y - h], [x + w, y], [x, y + h], [x - w, y]]);
+function paintRoom(ctx) {
+  const rnd = rng(seed(ROOM)), H = 104, L = [OX - N * TW, OY + N * TH], R = [OX + N * TW, OY + N * TH];
+  const wallL = poly([[OX, OY], L, [L[0], L[1] - H], [OX, OY - H]]), wallR = poly([[OX, OY], R, [R[0], R[1] - H], [OX, OY - H]]);
+  crayon(ctx, wallL, PAL.wallL, rnd, [L[0], OY - H, N * TW, H + N * TH], true, 120);
+  crayon(ctx, wallR, PAL.wallR, rnd, [OX, OY - H, N * TW, H + N * TH], true, 120);
+  // Ventana en el muro derecho, con el cielo del cuarto.
+  const onR = (t, h) => [OX + t * N * TW, OY + t * N * TH - h];
+  const win = poly([onR(0.3, 84), onR(0.62, 84), onR(0.62, 36), onR(0.3, 36)]);
+  PAL.sky.forEach((c, i) => crayon(ctx, win, c, rnd, [OX + 50, OY - 90, 75, 110], i === 0, 140));
+  sketch(ctx, win, INK, 1.6, rnd);
+  sketch(ctx, new Path2D("M" + onR(0.46, 84).join(" ") + "L" + onR(0.46, 36).join(" ")), INK, 1, rnd, 0.6);
+  // Cuadro en el muro izquierdo.
+  const onL = (t, h) => [OX - t * N * TW, OY + t * N * TH - h];
+  const art = poly([onL(0.35, 80), onL(0.6, 80), onL(0.6, 44), onL(0.35, 44)]);
+  crayon(ctx, art, PAL.rug, rnd, [OX - 120, OY - 80, 70, 100], true, 200);
+  sketch(ctx, art, INK, 1.4, rnd);
+  sketch(ctx, poly([[OX, OY - H], [OX, OY], L, [L[0], L[1] - H]]), INK, 1, rnd, 0.35);
+  sketch(ctx, poly([[OX, OY], R]), INK, 1, rnd, 0.35);
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const [x, y] = tileAt(i, j), p = diamond(x, y);
+    crayon(ctx, p, PAL.floor[(i + j) % 2], rnd, [x - TW, y - TH, TW * 2, TH * 2], true, 200);
+    sketch(ctx, p, INK, 0.6, rnd, 0.18);
+  }
+  const [rx, ry] = tileAt(2.5, 2.5), rug = diamond(rx, ry, TW * 2.3, TH * 2.3);
+  crayon(ctx, rug, PAL.rug, rnd, [rx - TW * 2.3, ry - TH * 2.3, TW * 4.6, TH * 4.6], true, 220);
+  crayon(ctx, diamond(rx, ry, TW * 1.5, TH * 1.5), tint(PAL.rug, 0.35), rnd, [rx - TW * 1.5, ry - TH * 1.5, TW * 3, TH * 3], false, 260);
+  sketch(ctx, rug, INK, 0.9, rnd, 0.5);
+}
+function paintProp(ctx, kind, x, y, rnd) {
+  if (kind === "plant") {
+    const pot = poly([[x - 9, y - 14], [x + 9, y - 14], [x + 6, y], [x - 6, y]]);
+    for (const [dx, dy, r] of [[-8, -24, 8], [7, -26, 8], [0, -34, 9], [-4, -42, 6], [6, -40, 6]]) {
+      const leaf = new Path2D(O(x + dx, y + dy, r));
+      crayon(ctx, leaf, PAL.leaf, rnd, [x + dx - r, y + dy - r, 2 * r, 2 * r], true, 400);
+      sketch(ctx, leaf, INK, 0.8, rnd, 0.5);
+    }
+    crayon(ctx, pot, "#c9774f", rnd, [x - 9, y - 14, 18, 14], true, 400);
+    sketch(ctx, pot, INK, 1, rnd);
+  } else {
+    const pole = poly([[x - 1.5, y - 50], [x + 1.5, y - 50], [x + 1.5, y], [x - 1.5, y]]);
+    const shade = poly([[x - 7, y - 66], [x + 7, y - 66], [x + 12, y - 50], [x - 12, y - 50]]);
+    crayon(ctx, new Path2D(O(x, y - 58, 20)), "#fff3c9", rnd, [x - 20, y - 78, 40, 40], false, 120);
+    crayon(ctx, pole, "#4a4f7a", rnd, [x - 2, y - 50, 4, 50], true, 300);
+    crayon(ctx, shade, "#f7e2c6", rnd, [x - 12, y - 66, 24, 16], true, 400);
+    sketch(ctx, shade, INK, 1, rnd);
+  }
+}
+const roomCache = { key: "", canvas: null };
+function renderScene(members, events) {
+  const canvas = $("sceneCanvas"), dpr = Math.min(devicePixelRatio || 1, 2);
+  // Baldosa por orden de entrada: primero lugares separados para que nadie tape a nadie, luego el resto.
+  const spots = members.map((m, k) => ({ m, i: SPOTS[k % SPOTS.length][0], j: SPOTS[k % SPOTS.length][1] }));
+  const key = JSON.stringify(spots.map((s) => [s.m.participant_id, s.m.avatar, s.m.online, s.i, s.j]));
+  if (key !== roomCache.key) {
+    roomCache.key = key;
+    canvas.width = SW * dpr; canvas.height = SH * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paintRoom(ctx);
+    const items = [...Object.entries(PROPS).map(([k, kind]) => { const [i, j] = k.split(",").map(Number); return { d: i + j, i, j, kind }; }), ...spots.map((s) => ({ d: s.i + s.j, ...s }))];
+    items.sort((a, b) => a.d - b.d);
+    const sc = 0.95;
+    for (const it of items) {
+      const [x, y] = tileAt(it.i, it.j);
+      if (it.kind) { paintProp(ctx, it.kind, x, y + 4, rng(seed(ROOM + it.i + it.j))); continue; }
+      const shadow = new Path2D(); shadow.ellipse(x, y + 2, 13, 5, 0, 0, Math.PI * 2);
+      ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = INK; ctx.fill(shadow); ctx.restore();
+      ctx.save();
+      ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * (x - 32 * sc), dpr * (y + 3 - 74 * sc));
+      paintFigure(ctx, it.m.avatar, it.m.participant_id, true);
+      ctx.restore(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+  // Globos: el último mensaje de los tres agentes que hablaron más reciente. Fuera de línea, zzz.
+  const last = new Map();
+  for (let k = events.length - 1; k >= 0 && last.size < 3; k--) {
+    const e = events[k];
+    if (e.type === "say" && !last.has(e.from)) last.set(e.from, e.body && typeof e.body.text === "string" ? e.body.text : "…");
+  }
+  // Si dos globos se enciman, el de atrás sube. El tamaño es estimado en unidades de la escena.
+  const placed = [];
+  $("bubbles").innerHTML = spots.slice().sort((a, b) => (b.i + b.j) - (a.i + a.j)).map((s) => {
+    const text = last.get(s.m.participant_id) ?? (s.m.online ? null : "zzz");
+    if (text == null) return "";
+    const t = text.length > 70 ? text.slice(0, 69) + "…" : text, label = s.m.name + ": " + t;
+    const [x, ty] = tileAt(s.i, s.j), w = Math.min(SW * 0.38, 12 + label.length * 5.6), h = w >= SW * 0.38 ? 34 : 20;
+    let y = ty - 74;
+    while (placed.some((r) => Math.abs(r.x - x) < (r.w + w) / 2 && y > r.y - r.h - 4 && y - h - 4 < r.y)) y -= 6;
+    placed.push({ x, y, w, h });
+    return '<div class="bubble" style="left:' + (x / SW * 100) + "%;top:" + (y / SH * 100) + '%"><b>' + esc(s.m.name) + ":</b> " + esc(t) + "</div>";
+  }).join("");
 }
 
 // Voz del navegador, solo cuando alguien la pide con el botón.
@@ -222,6 +415,8 @@ function render() {
     }
   }
   $("chat").innerHTML = out.join("") || '<div class="empty">Sin mensajes todavía.</div>';
+  placeChibis();
+  renderScene(d.participants, d.events);
   if (atBottom || EMBED) scrollTo(0, document.body.scrollHeight);
 }
 
