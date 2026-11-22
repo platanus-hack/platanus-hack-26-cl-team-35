@@ -1,5 +1,4 @@
 import { serve } from "@hono/node-server";
-import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -18,6 +17,7 @@ import { viewHtml } from "./web/view.ts";
 import { coreRoutes } from "./core/routes.ts";
 import { baseUrl } from "./base-url.ts";
 import { bearer, hasBearer, isAdmin } from "./admin-auth.ts";
+import { LOGIN_PER_MIN, ROOMS_PER_MIN, clientIp, overIpLimit, streamSlot } from "./guard.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
 
@@ -32,12 +32,6 @@ const oneLine = (v: unknown, max: number) => String(v ?? "").replace(/[\u0000-\u
 /** Campos que deben ser texto: un JSON con objetos o arreglos ahí se rechaza en vez de romper más adelante. */
 const notText = (b: Record<string, unknown>, keys: string[]) => keys.find((k) => b[k] !== undefined && b[k] !== null && typeof b[k] !== "string");
 const err = (c: Context, status: Status, error: string, message: string, hint: string) => c.json({ error, message, hint }, status);
-
-function clientIp(c: Context): string {
-  const h = c.req.header("fly-client-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0].trim();
-  if (h) return h;
-  try { return getConnInfo(c).remote.address ?? "unknown"; } catch { return "unknown"; }
-}
 
 /** Lee el body como JSON o, si no lo es, como formulario. */
 async function readBody(c: Context): Promise<Record<string, any>> {
@@ -74,6 +68,8 @@ app.onError((e, c) => {
 const ORGANIZER_TOKEN = process.env.ORGANIZER_TOKEN;
 const isOrganizer = (c: Context) => hasBearer(c, ORGANIZER_TOKEN);
 const noAdmin = (c: Context) => err(c, 401, "unauthorized", "Token de admin incorrecto.", "Usa 'Authorization: Bearer <ADMIN_TOKEN>'.");
+const tooFast = (c: Context) => err(c, 429, "rate_limited", "Demasiadas solicitudes desde tu IP en el último minuto.", "Espera un minuto y vuelve a intentar.");
+const tooManyStreams = (c: Context) => err(c, 429, "too_many_streams", "Tienes demasiadas vistas en vivo abiertas desde tu IP.", "Cierra alguna pestaña de la vista y vuelve a intentar.");
 const noRoom = (c: Context) => err(c, 404, "room_not_found", "Ese cuarto no existe.", "Revisa la URL que te dieron.");
 
 // Cuentas: la llave del agente es su identidad. Iniciar sesión es firmar con ella; crear cuartos exige aprobación del admin.
@@ -152,6 +148,7 @@ app.get("/agentroom.mjs.sha256", (c) => {
 const SEED_VENUES = Venue.array().parse(JSON.parse(readFileSync(fileURLToPath(new URL("../../../seed/venues.json", import.meta.url)), "utf8")));
 
 app.post("/accounts/login", async (c) => {
+  if (overIpLimit(c, "login", LOGIN_PER_MIN)) return tooFast(c);
   const b = await readBody(c);
   // `signedName` es lo que firmó el cliente; `name` es lo que se guarda y ven los demás, en una sola línea.
   const pk = String(b.public_key ?? ""), signedName = String(b.display_name ?? "").trim().slice(0, 60), name = oneLine(signedName, 60), ts = String(b.ts ?? "");
@@ -208,6 +205,7 @@ for (const [action, status] of [["approve", "approved"], ["reject", "rejected"]]
 }
 
 app.post("/rooms", async (c) => {
+  if (!isAdmin(c) && overIpLimit(c, "rooms", ROOMS_PER_MIN)) return tooFast(c);
   const acct = accountOf(c);
   if (acct && acct.status !== "approved") return err(c, 403, "account_not_approved", `Tu cuenta ${acct.id} todavía no puede crear cuartos (${acct.status}).`, pendingHint(acct)!);
   if (!acct && !isAdmin(c) && !isOrganizer(c)) return err(c, 401, "unauthorized", "Para crear cuartos necesitas una cuenta aprobada.", "Corre agentroom login --base URL y pide que el admin apruebe tu cuenta.");
@@ -341,11 +339,13 @@ app.get("/rooms/:id/transcript/stream", (c) => {
   const first = transcriptRoom(c);
   if (first instanceof Response) { for (const [k, v] of Object.entries(CORS)) first.headers.set(k, v); return first; }
   for (const [k, v] of Object.entries(CORS)) c.header(k, v);
+  const release = streamSlot(clientIp(c));
+  if (!release) return tooManyStreams(c);
   let after = Number(c.req.query("after") ?? 0) || 0;
   return streamSSE(c, async (stream) => {
     let open = true, idle = 0;
-    stream.onAbort(() => { open = false; });
-    while (open) {
+    stream.onAbort(() => { open = false; release(); });
+    try { while (open) {
       const r = loadRoom(first.id);
       if (!r) break;
       if (lastSeq(r.id) > after) {
@@ -354,7 +354,7 @@ app.get("/rooms/:id/transcript/stream", (c) => {
         after = t.last_seq; idle = 0;
       } else if (++idle % 30 === 0) await stream.writeSSE({ event: "ping", data: "" });
       await stream.sleep(500);
-    }
+    } } finally { release(); }
   });
 });
 
@@ -602,10 +602,12 @@ app.get("/rooms/:id/log", (c) => {
 app.get("/rooms/:id/events", (c) => {
   const first = room(c);
   if (!first) return noRoom(c);
+  const release = streamSlot(clientIp(c));
+  if (!release) return tooManyStreams(c);
   return streamSSE(c, async (stream) => {
     let open = true, lastKey = "", idle = 0;
-    stream.onAbort(() => { open = false; });
-    while (open) {
+    stream.onAbort(() => { open = false; release(); });
+    try { while (open) {
       const r = loadRoom(first.id);
       if (!r) break;
       // En un cuarto abierto también cambia quién está en línea, sin que haya eventos nuevos.
@@ -613,7 +615,7 @@ app.get("/rooms/:id/events", (c) => {
       if (key !== lastKey) { lastKey = key; idle = 0; await stream.writeSSE({ event: "room", data: JSON.stringify(snapshot(r)) }); }
       else if (++idle % 30 === 0) await stream.writeSSE({ event: "ping", data: "" });
       await stream.sleep(500);
-    }
+    } } finally { release(); }
   });
 });
 
@@ -656,6 +658,9 @@ app.get("/admin/requests", (c) => {
 app.route("/core", coreRoutes);
 
 app.notFound((c) => err(c, 404, "not_found", `No existe ${c.req.method} ${new URL(c.req.url).pathname}.`, "Revisa la ruta en tus instrucciones (agent.md)."));
+
+// Cada minuto: el registro de requests se queda con las últimas 100 mil filas.
+setInterval(() => db.prepare("DELETE FROM requests WHERE id <= (SELECT MAX(id) FROM requests) - 100000").run(), 60_000).unref();
 
 // Temporizador de plazos: un solo proceso de larga duración revisa los cuartos activos cada segundo.
 setInterval(() => {

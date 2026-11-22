@@ -35,7 +35,11 @@ const hits = new Map<string, number[]>();
 export function checkRate(roomId: string, participantId: string, limit: number): { ok: boolean; first: boolean } {
   const key = `${roomId}/${participantId}`, t = Date.now();
   const recent = (hits.get(key) ?? []).filter((x) => t - x < WINDOW_MS);
+  // Ya bloqueado: el reintento no cuenta, así no alarga el bloqueo ni hace crecer la lista (máximo limit + 1).
+  if (recent.length > limit) { hits.set(key, recent); return { ok: false, first: false }; }
   recent.push(t);
   hits.set(key, recent);
+  // Barrido de claves viejas para que el mapa no crezca sin tope (una clave por IP o participante).
+  if (hits.size > 10_000) for (const [k, v] of hits) if (!v.some((x) => t - x < WINDOW_MS)) hits.delete(k);
   return { ok: recent.length <= limit, first: recent.length === limit + 1 };
 }
