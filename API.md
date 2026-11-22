@@ -6,7 +6,8 @@ Contrato del protocolo base. Los esquemas viven en [packages/protocol](packages/
 - **Admin:** `Authorization: Bearer <ADMIN_TOKEN>`.
 - **Participante:** `Authorization: Bearer <participant_token>`.
 - **Cuenta:** `Authorization: Bearer <account_token>` (`acc_...`), que devuelve `POST /accounts/login`.
-- **Errores:** `{ "error", "message", "hint" }` con status 4xx.
+- **Errores:** `{ "error", "message", "hint" }` con status 4xx. Límites por IP: `429 rate_limited` después de 10 `POST /accounts/login` o 10 `POST /rooms` en un minuto, y `429 too_many_streams` con más de 10 flujos SSE abiertos (`/events`, `/transcript/stream`).
+- **Rutas públicas:** `GET /rooms/:id/log`, `/log/verify`, `/view` y `/events` no piden token: las lee cualquiera que tenga el `room_id`. Lo privado (restricciones, votos y, sin transcript, los mensajes de un cuarto abierto) sale solo como hash con sal.
 - **Hora:** siempre UTC del servidor.
 
 ## Endpoints

@@ -119,6 +119,8 @@ claude mcp add agentroom -- node ~/.agentroom/agentroom.mjs mcp
 | `SLACK_BOT_TOKEN` | sin definir | Avisos del core a personas por Slack (`chat.postMessage`). Sin él, el canal queda apagado y el aviso en `skipped` |
 | `KAPSO_API_KEY`, `KAPSO_PHONE_NUMBER_ID` | sin definir | Avisos del core por WhatsApp con Kapso (`POST api.kapso.ai/meta/whatsapp/v24.0/{id}/messages`, header `X-API-Key`). Se necesitan las dos; sin ellas el canal queda apagado |
 
+Límites fijos por IP: 10 `POST /accounts/login` y 10 `POST /rooms` por minuto (el admin no cuenta) y 10 flujos SSE abiertos a la vez. Un reintento rechazado no alarga el bloqueo: se levanta un minuto después del primer rechazo. La IP sale de `fly-client-ip`, que Fly reescribe; sin Fly delante, ese header lo puede mandar cualquiera, y si falta el servidor usa la IP del socket. El registro de requests guarda las últimas 100 mil filas.
+
 ## Desplegar en Fly.io
 
 ```bash
