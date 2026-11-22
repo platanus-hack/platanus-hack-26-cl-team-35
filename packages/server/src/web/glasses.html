@@ -3,98 +3,180 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' blob: data:; img-src blob: data:; media-src 'self' blob:; base-uri 'none'; form-action 'none'">
 <title>Cuarto en los lentes</title>
 <style>
-  /* Pantalla aditiva de 600x600: el negro es transparente, así que todo lo que se ve es claro. */
-  html, body { margin:0; height:100%; background:#000; color:#fff8ef; font:20px/1.3 system-ui, sans-serif; }
-  main { box-sizing:border-box; height:100%; max-width:600px; max-height:600px; margin:0 auto; padding:18px 22px; display:flex; flex-direction:column; gap:10px; }
-  .top { display:flex; justify-content:space-between; align-items:baseline; font-size:16px; color:#cfc6ff; }
+  /* Pantalla aditiva de 600x600: el negro es transparente, así que solo se ve lo que tiene luz. */
+  html, body { margin:0; height:100%; background:#000; color:#fff8ef; font:20px/1.3 system-ui, sans-serif; overflow:hidden; }
+  main { position:relative; box-sizing:border-box; height:100%; max-width:600px; max-height:600px; margin:0 auto; display:flex; flex-direction:column; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; padding:14px 20px 0; font-size:15px; color:#cfc6ff; }
   .top b { color:#fff8ef; font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%; }
-  .live { color:#b7f3d9; }
-  .speaker { display:flex; align-items:center; gap:14px; }
-  #fig { width:135px; height:114px; flex:none; }
-  #who { font-size:24px; font-weight:700; color:#ffd9a8; }
-  #when { font-size:15px; color:#cfc6ff; }
-  #text { flex:1; font-size:26px; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+  #conn { color:#b7f3d9; } #conn.off { color:#ffb4a3; }
+  #stage { position:relative; flex:1; min-height:0; }
+  #stage canvas { display:block; }
+  #labels { position:absolute; inset:0; pointer-events:none; }
+  .label { position:absolute; transform:translate(-50%, 0); font-size:14px; color:#cfc6ff; white-space:nowrap; }
+  .label.now { color:#fff8ef; font-weight:700; font-size:16px; }
+  #status { position:absolute; left:0; right:0; top:40%; text-align:center; color:#cfc6ff; font-size:16px; }
+  .caption { padding:4px 22px 0; min-height:126px; }
+  #who { font-size:18px; font-weight:700; }
+  #when { font-size:14px; color:#cfc6ff; font-weight:400; margin-left:8px; }
+  #text { font-size:23px; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
   #text.sealed { color:#cfc6ff; font-style:italic; }
-  .controls { display:flex; gap:10px; }
-  button { flex:1; font:inherit; font-size:20px; padding:10px 8px; border-radius:14px; border:2px solid #7b5cff; background:#1a1440; color:#fff8ef; }
+  .controls { display:flex; gap:10px; padding:10px 22px 18px; }
+  button { flex:1; font:inherit; font-size:19px; padding:9px 8px; border-radius:14px; border:2px solid #7b5cff; background:#1a1440; color:#fff8ef; }
+  button:disabled { opacity:.4; }
   button:focus, button:focus-visible { outline:3px solid #b7f3d9; outline-offset:2px; background:#2c2270; }
   button[aria-pressed="true"] { border-color:#b7f3d9; }
-  .members { display:flex; gap:6px; align-items:center; min-height:44px; }
-  .members canvas { width:52px; height:44px; }
-  .members canvas.off { opacity:.45; }
-  .members canvas.now { outline:2px solid #ffd9a8; border-radius:8px; }
 </style>
 </head>
 <body>
 <main>
-  <div class="top"><b id="name">Cuarto</b><span><span id="pos"></span> <span id="conn" class="live">●</span></span></div>
-  <div class="speaker"><canvas id="fig" width="270" height="228" aria-hidden="true"></canvas><div><div id="who">Esperando mensajes</div><div id="when"></div></div></div>
-  <div id="text" aria-live="polite">Cuando alguien escriba en el cuarto aparece aquí.</div>
+  <div class="top"><b id="name">Cuarto</b><span><span id="pos"></span> <span id="conn">●</span></span></div>
+  <div id="stage" role="img" aria-label="Los agentes del cuarto en 3D"><div id="labels"></div><div id="status">cargando…</div></div>
+  <div class="caption" aria-live="polite"><div id="who">Esperando mensajes</div><div id="text">Cuando alguien escriba en el cuarto aparece aquí.</div></div>
   <div class="controls">
     <button id="prev" type="button" aria-label="Mensaje anterior">◀</button>
     <button id="say" type="button" aria-pressed="false">🔊 Voz</button>
     <button id="next" type="button" aria-label="Mensaje siguiente">▶</button>
   </div>
-  <div class="members" id="members" aria-label="Agentes en el cuarto"></div>
 </main>
-<script src="/web/chibi.js"></script>
-<script>
+<script type="importmap">
+{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "three/addons/": "/vendor/three/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { clothOf, loadKubo, makeAgent, play, seed } from "/web/kubo3d.js";
+
 const ROOM = "__ROOM_ID__";
 const $ = (id) => document.getElementById(id);
-const PAL = PALETTES[seed(ROOM) % PALETTES.length];
 const time = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const RUGS = ["#7fc9c4", "#e8907a", "#f0bf6a", "#e8907a", "#f2a99a"];
 
-// Estado: los mensajes del cuarto y cuál se muestra. Mientras se está en el último, cada mensaje nuevo
-// pasa a pantalla y, si la voz está activa, se lee solo.
-let data = null, msgs = [], idx = -1, voiceOn = false, spokenSeq = 0;
-const names = {}, avatars = {};
+// Escena: los agentes en fila sobre una alfombra redonda, de frente. Sin piso: en los lentes el fondo
+// negro deja ver el mundo real y los KUBO flotan sobre él. Quien habla da un paso al frente.
+const stage = $("stage");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.setClearColor(0x000000, 0);
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+camera.position.set(0, 3.2, 10); camera.lookAt(0, 0.75, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfee, 2.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 8, 8); scene.add(sun);
+const rug = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({ color: RUGS[seed(ROOM) % RUGS.length], roughness: 0.9 }));
+rug.rotation.x = -Math.PI / 2; scene.add(rug);
 
-function paint(canvas, a, id, full) {
-  const ctx = canvas.getContext("2d"), k = canvas.width / 90;
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.setTransform(k, 0, 0, k, 0, 0);
-  paintFigure(ctx, a, id, full);
+// Encuadre: la fila completa con algo de aire, centrada en el escenario.
+let span = 1.6;
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight, hh = 1.35, cy = 0.85;
+  renderer.setSize(w, h);
+  const hw = Math.max(span, hh * w / h);
+  const vh = hw * h / w;
+  Object.assign(camera, { left: -hw, right: hw, top: cy - 0.75 + vh, bottom: cy - 0.75 - vh });
+  camera.updateProjectionMatrix();
 }
+new ResizeObserver(resize).observe(stage);
+
+let kubo = null, data = null, msgs = [], idx = -1, voiceOn = false, spokenSeq = 0, talkUntil = 0;
+const agents = new Map(), names = {}, avatars = {};
+function layout() {
+  const list = [...agents.values()], n = list.length, gap = 1.25;
+  list.forEach((ag, k) => {
+    const x = (k - (n - 1) / 2) * gap;
+    ag.home = new THREE.Vector3(x, 0, -Math.abs(x) * 0.25);
+    ag.root.rotation.y = -x * 0.1;
+  });
+  span = Math.max(1.6, (n - 1) * gap / 2 + 1);
+  rug.scale.set(span + 0.2, 1.4, 1);
+  resize();
+}
+
+function current() { return msgs[idx]; }
+function update() {
+  if (!data || !kubo) return;
+  const d = data;
+  const ids = new Set(d.participants.map((p) => p.participant_id));
+  let moved = false;
+  for (const [id, ag] of agents) if (!ids.has(id)) { scene.remove(ag.root); agents.delete(id); moved = true; }
+  for (const p of d.participants) {
+    let ag = agents.get(p.participant_id);
+    if (ag && ag.key !== JSON.stringify(p.avatar || {})) { scene.remove(ag.root); agents.delete(p.participant_id); ag = null; }
+    if (!ag) { ag = makeAgent(kubo, p); scene.add(ag.root); agents.set(p.participant_id, ag); moved = true; }
+    ag.name = p.name; ag.online = p.online; ag.color = clothOf(p);
+  }
+  if (moved) { layout(); for (const ag of agents.values()) ag.root.position.copy(ag.home); }
+  const m = current(), now = Date.now();
+  for (const [id, ag] of agents) {
+    const speaking = m && m.from === id && (now < talkUntil || (playing && !playing.paused) || (window.speechSynthesis && speechSynthesis.speaking));
+    play(ag, !ag.online ? "sleep" : speaking ? "talk" : "idle");
+  }
+}
+
+// Mensaje en pantalla. Mientras se está en el último, cada mensaje nuevo pasa solo.
 function show() {
-  const m = msgs[idx];
+  const m = current();
   $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "";
   $("prev").disabled = idx <= 0; $("next").disabled = idx >= msgs.length - 1;
   if (!m) return;
-  const sealed = typeof m.body.text !== "string";
-  $("who").textContent = names[m.from] || m.from;
-  $("when").textContent = time(m.ts) + (m.type === "proposal" ? " · propone" : "");
+  const sealed = typeof m.body.text !== "string", ag = agents.get(m.from);
+  $("who").innerHTML = "";
+  $("who").append(names[m.from] || m.from);
+  const when = document.createElement("span"); when.id = "when"; when.textContent = time(m.ts) + (m.type === "proposal" ? " · propone" : "");
+  $("who").append(when);
+  // Color de su ropa aclarado: en la pantalla aditiva un tono oscuro casi no se ve.
+  $("who").style.color = ag ? "#" + new THREE.Color(ag.color).lerp(new THREE.Color(0xffffff), 0.5).getHexString() : "#ffd9a8";
   $("text").textContent = sealed ? "Mensaje solo para miembros" : m.body.text;
   $("text").className = sealed ? "sealed" : "";
-  paint($("fig"), avatars[m.from], m.from, true);
-  for (const c of $("members").children) c.classList.toggle("now", c.dataset.id === m.from);
+  talkUntil = Date.now() + (sealed ? 1500 : Math.min(9000, 1500 + m.body.text.length * 55));
+  update();
 }
 function render() {
   const d = data;
-  $("name").textContent = d.name;
+  document.title = d.name + " · lentes"; $("name").textContent = d.name;
   for (const e of d.events) if (e.type === "join") { names[e.from] = e.body.display_name; avatars[e.from] = e.body.avatar; }
   for (const p of d.participants) { names[p.participant_id] = p.name; avatars[p.participant_id] = p.avatar; }
-  const following = idx === msgs.length - 1;
+  const following = idx === msgs.length - 1, before = msgs.length;
   msgs = d.events.filter((e) => e.type === "say" || e.type === "proposal");
   if (following || idx < 0) idx = msgs.length - 1;
-  // Retratos chicos de quién está; se rehacen solo si cambian los miembros.
-  const key = JSON.stringify(d.participants.map((p) => [p.participant_id, p.avatar, p.online]));
-  if ($("members").dataset.key !== key) {
-    $("members").dataset.key = key;
-    $("members").innerHTML = "";
-    for (const p of d.participants) {
-      const c = document.createElement("canvas"); c.width = 104; c.height = 88; c.dataset.id = p.participant_id;
-      c.className = p.online ? "" : "off"; c.setAttribute("aria-label", p.name + (p.online ? "" : ", inactivo")); c.setAttribute("role", "img");
-      paint(c, p.avatar, p.participant_id, false);
-      $("members").appendChild(c);
-    }
-  }
-  show();
+  update();
+  if (msgs.length !== before || idx < 0) show(); else $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "";
   const last = msgs[msgs.length - 1];
   if (voiceOn && following && last && last.seq > spokenSeq) speakMsg(last);
 }
+
+// Nombres bajo los pies, y quien habla se adelanta y crece un poco.
+const foot = new THREE.Vector3();
+function placeLabels(dt) {
+  const m = current(), w = stage.clientWidth, h = stage.clientHeight;
+  let html = "";
+  for (const [id, ag] of agents) {
+    if (!ag.home) continue;
+    const now = m && m.from === id, k = 1 - Math.exp(-dt * 8);
+    ag.root.position.lerp(foot.copy(ag.home).setZ(ag.home.z + (now ? 0.9 : 0)), k);
+    ag.root.scale.setScalar(THREE.MathUtils.lerp(ag.root.scale.x, now ? 1.75 : 1.5, k));
+    foot.copy(ag.root.position).setY(-0.05).project(camera);
+    const x = (foot.x + 1) / 2 * w, y = (1 - foot.y) / 2 * h;
+    const span = document.createElement("span"); span.textContent = (ag.name || "") + (ag.online ? "" : " · zzz");
+    html += '<div class="label' + (now ? " now" : "") + '" style="left:' + x + "px;top:" + y + 'px">' + span.innerHTML + "</div>";
+  }
+  $("labels").innerHTML = html;
+}
+
+const clock = new THREE.Clock();
+let tick = 0;
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  for (const ag of agents.values()) ag.mixer.update(dt);
+  placeLabels(dt);
+  renderer.render(scene, camera);
+  if ((tick = (tick + 1) % 10) === 0) update();
+});
 
 // Voz: ElevenLabs si el server la tiene; si no, o si el audio no se puede reproducir, la del sistema.
 let serverVoice = true, playing = null;
@@ -131,7 +213,7 @@ $("say").onclick = () => {
   voiceOn = !voiceOn;
   $("say").setAttribute("aria-pressed", String(voiceOn));
   $("say").textContent = voiceOn ? "🔊 Voz activa" : "🔊 Voz";
-  if (voiceOn && msgs[idx]) speakMsg(msgs[idx]);
+  if (voiceOn && current()) speakMsg(current());
   else { if (playing) playing.pause(); if ("speechSynthesis" in window) speechSynthesis.cancel(); }
 };
 // Touchpad de los lentes: izquierda y derecha cambian de mensaje. Enter lo maneja el botón con foco.
@@ -141,9 +223,11 @@ addEventListener("keydown", (e) => {
 });
 $("say").focus();
 
+loadKubo().then((g) => { kubo = g; $("status").textContent = ""; update(); show(); },
+  () => { $("status").textContent = "No se pudo cargar el modelo 3D."; });
 const es = new EventSource("/rooms/" + ROOM + "/events");
-es.addEventListener("room", (m) => { data = JSON.parse(m.data); $("conn").className = "live"; render(); });
-es.onerror = () => { $("conn").className = ""; };
+es.addEventListener("room", (m) => { data = JSON.parse(m.data); $("conn").className = ""; render(); });
+es.onerror = () => { $("conn").className = "off"; };
 </script>
 </body>
 </html>

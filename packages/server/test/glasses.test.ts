@@ -35,9 +35,23 @@ test("GET /rooms/:id/glasses sirve la vista del cuarto, 404 si no existe", async
   assert.equal((await fetch(`${BASE}/rooms/r_nope/glasses`)).status, 404);
 });
 
-test("GET /web/chibi.js sirve el renderer compartido", async () => {
-  const r = await fetch(`${BASE}/web/chibi.js`);
+test("GET /web/kubo3d.js sirve el módulo 3D compartido, y las dos vistas lo usan", async () => {
+  const r = await fetch(`${BASE}/web/kubo3d.js`);
   assert.equal(r.status, 200);
   assert.match(r.headers.get("content-type") ?? "", /javascript/);
-  assert.equal(await r.text(), readFileSync("packages/server/src/web/chibi.js", "utf8"));
+  assert.equal(await r.text(), readFileSync("packages/server/src/web/kubo3d.js", "utf8"));
+  for (const f of ["view3d.html", "glasses.html"]) {
+    const html = readFileSync(`packages/server/src/web/${f}`, "utf8");
+    assert.ok(html.includes('from "/web/kubo3d.js"'), `${f} importa el módulo`);
+    assert.ok(!/https?:\/\//.test(html.match(/<script type="importmap">[\s\S]*?<\/script>/)?.[0] ?? "x"), `${f}: three sale del server`);
+  }
+});
+
+test("kubo3d.js: carga en Node y exporta lo que usan las vistas", async () => {
+  const m = await import("../src/web/kubo3d.js");
+  for (const k of ["seed", "loadKubo", "makeAgent", "play", "HAIR", "CLOTH"]) assert.ok(k in m, k);
+  assert.equal(m.seed("r_x"), m.seed("r_x"));
+  const ag = { state: "", actions: { idle: { reset() { return this; }, fadeIn() { return this; }, play() { return this; }, fadeOut() { return this; } } } };
+  m.play(ag, "idle"); assert.equal(ag.state, "idle");
+  m.play(ag, "nope"); assert.equal(ag.state, "idle", "una animación que no existe no cambia el estado");
 });

@@ -25,16 +25,11 @@ test("sanitizeAvatar: conserva lo válido y descarta lo que no está en la lista
   assert.equal(sanitizeAvatar({ bio: "x".repeat(500) })!.bio!.length, 80);
 });
 
-// Las vistas cargan /web/chibi.js antes de su script: se compilan juntos, como los ve el navegador.
-const chibiJs = () => readFileSync("packages/server/src/web/chibi.js", "utf8");
-const inline = (f: string) => { const html = readFileSync(f, "utf8"); return html.slice(html.lastIndexOf("<script>") + 8, html.lastIndexOf("</script>")); };
-for (const f of ["chat.html", "glasses.html"]) {
-  test(`${f}: el script de la vista compila junto con chibi.js`, () => {
-    const html = readFileSync(`packages/server/src/web/${f}`, "utf8");
-    assert.ok(html.includes('<script src="/web/chibi.js"></script>'), "carga el renderer compartido");
-    assert.doesNotThrow(() => new Function(chibiJs() + "\n" + inline(`packages/server/src/web/${f}`)));
-  });
-}
+test("chat.html: el script de la vista compila", () => {
+  const html = readFileSync("packages/server/src/web/chat.html", "utf8");
+  const code = html.slice(html.indexOf("<script>") + 8, html.lastIndexOf("</script>"));
+  assert.doesNotThrow(() => new Function(code));
+});
 
 const TMP = mkdtempSync(join(tmpdir(), "agentrooms-avatar-"));
 let server: ChildProcess, BASE = "";
