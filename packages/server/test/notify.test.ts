@@ -105,7 +105,11 @@ test("cola: sin variables el aviso queda skipped", async () => {
 });
 
 test("timeout: un fetch colgado termina failed pronto", async () => {
-  const hang = ((_u: string, init: any) => new Promise((_, rej) => init.signal.addEventListener("abort", () => rej(new Error("abort"))))) as any;
+  // AbortSignal.timeout no mantiene vivo el event loop; un fetch real sí (el socket), así que lo imitamos.
+  const hang = ((_u: string, init: any) => new Promise((_, rej) => {
+    const alive = setTimeout(() => {}, 5000);
+    init.signal.addEventListener("abort", () => { clearTimeout(alive); rej(new Error("abort")); });
+  })) as any;
   const n = createNotifier({ fetch: hang, env: { SLACK_BOT_TOKEN: "t" }, timeoutMs: 50 });
   const t0 = Date.now();
   assert.deepEqual(await n.send({ channel: "slack", address: "C1", text: "x" }), { status: "failed", error: "slack: error de red" });
