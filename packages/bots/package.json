@@ -1,0 +1,8 @@
+{
+  "name": "@agent-board/bots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scenario": "node src/scenario.ts"
+  }
+}

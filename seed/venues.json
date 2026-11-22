@@ -1,0 +1,347 @@
+[
+ {
+  "venue_id": "v01",
+  "name": "Café Supuesto",
+  "zone": "roma",
+  "price_mxn": 350,
+  "days": [
+   {
+    "day": "fri",
+    "from": "17:00",
+    "to": "23:00"
+   },
+   {
+    "day": "sat",
+    "from": "17:00",
+    "to": "23:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": false,
+  "capacity": 16
+ },
+ {
+  "venue_id": "v02",
+  "name": "Mesa Presunta",
+  "zone": "roma",
+  "price_mxn": 480,
+  "days": [
+   {
+    "day": "sat",
+    "from": "18:00",
+    "to": "23:30"
+   },
+   {
+    "day": "sun",
+    "from": "18:00",
+    "to": "22:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 18
+ },
+ {
+  "venue_id": "v03",
+  "name": "Fonda Inventada",
+  "zone": "roma",
+  "price_mxn": 390,
+  "days": [
+   {
+    "day": "fri",
+    "from": "13:00",
+    "to": "23:00"
+   },
+   {
+    "day": "sat",
+    "from": "13:00",
+    "to": "23:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 10
+ },
+ {
+  "venue_id": "v04",
+  "name": "Marisquería Aparente",
+  "zone": "roma",
+  "price_mxn": 400,
+  "days": [
+   {
+    "day": "sat",
+    "from": "13:00",
+    "to": "23:00"
+   },
+   {
+    "day": "sun",
+    "from": "13:00",
+    "to": "21:00"
+   }
+  ],
+  "diets": [
+   "vegetarian"
+  ],
+  "music": true,
+  "capacity": 20
+ },
+ {
+  "venue_id": "v05",
+  "name": "Patio Conjetural",
+  "zone": "roma",
+  "price_mxn": 380,
+  "days": [
+   {
+    "day": "fri",
+    "from": "18:00",
+    "to": "23:30"
+   },
+   {
+    "day": "sun",
+    "from": "18:00",
+    "to": "23:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 14
+ },
+ {
+  "venue_id": "v06",
+  "name": "Comedor Diurno",
+  "zone": "roma",
+  "price_mxn": 410,
+  "days": [
+   {
+    "day": "sat",
+    "from": "12:00",
+    "to": "19:00"
+   },
+   {
+    "day": "sun",
+    "from": "12:00",
+    "to": "19:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 12
+ },
+ {
+  "venue_id": "v07",
+  "name": "Cantina Ficticia",
+  "zone": "roma",
+  "price_mxn": 420,
+  "days": [
+   {
+    "day": "fri",
+    "from": "18:00",
+    "to": "23:30"
+   },
+   {
+    "day": "sat",
+    "from": "18:00",
+    "to": "23:30"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 14
+ },
+ {
+  "venue_id": "v08",
+  "name": "Barra Mínima",
+  "zone": "roma",
+  "price_mxn": 300,
+  "days": [
+   {
+    "day": "sat",
+    "from": "18:00",
+    "to": "23:59"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 3
+ },
+ {
+  "venue_id": "v09",
+  "name": "Terraza Imaginaria",
+  "zone": "condesa",
+  "price_mxn": 430,
+  "days": [
+   {
+    "day": "sat",
+    "from": "19:00",
+    "to": "23:00"
+   },
+   {
+    "day": "sun",
+    "from": "19:00",
+    "to": "23:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 20
+ },
+ {
+  "venue_id": "v10",
+  "name": "Jardín Hipotético",
+  "zone": "condesa",
+  "price_mxn": 600,
+  "days": [
+   {
+    "day": "fri",
+    "from": "19:00",
+    "to": "23:59"
+   },
+   {
+    "day": "sat",
+    "from": "19:00",
+    "to": "23:59"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood",
+   "vegan"
+  ],
+  "music": true,
+  "capacity": 25
+ },
+ {
+  "venue_id": "v11",
+  "name": "Bistró Hipotético",
+  "zone": "roma",
+  "price_mxn": 450,
+  "days": [
+   {
+    "day": "sat",
+    "from": "19:00",
+    "to": "23:59"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood",
+   "vegan"
+  ],
+  "music": true,
+  "capacity": 12
+ },
+ {
+  "venue_id": "v12",
+  "name": "Salón Figurado",
+  "zone": "juarez",
+  "price_mxn": 440,
+  "days": [
+   {
+    "day": "fri",
+    "from": "18:00",
+    "to": "23:59"
+   },
+   {
+    "day": "sat",
+    "from": "18:00",
+    "to": "23:59"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 30
+ },
+ {
+  "venue_id": "v13",
+  "name": "Taquería Aparente",
+  "zone": "centro",
+  "price_mxn": 250,
+  "days": [
+   {
+    "day": "fri",
+    "from": "12:00",
+    "to": "22:00"
+   },
+   {
+    "day": "sat",
+    "from": "12:00",
+    "to": "22:00"
+   }
+  ],
+  "diets": [
+   "no-seafood"
+  ],
+  "music": false,
+  "capacity": 15
+ },
+ {
+  "venue_id": "v14",
+  "name": "Salón Supuesto",
+  "zone": "polanco",
+  "price_mxn": 800,
+  "days": [
+   {
+    "day": "sat",
+    "from": "19:00",
+    "to": "23:00"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 30
+ },
+ {
+  "venue_id": "v15",
+  "name": "Azotea Nominal",
+  "zone": "polanco",
+  "price_mxn": 520,
+  "days": [
+   {
+    "day": "fri",
+    "from": "19:00",
+    "to": "23:59"
+   },
+   {
+    "day": "sat",
+    "from": "19:00",
+    "to": "23:59"
+   }
+  ],
+  "diets": [
+   "vegetarian",
+   "no-seafood"
+  ],
+  "music": true,
+  "capacity": 22
+ }
+]

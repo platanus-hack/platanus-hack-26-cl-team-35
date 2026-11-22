@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Cuarto en vivo</title>
+<style>
+  :root {
+    --bg:#f6f5f1; --surface:#ffffff; --fg:#1b1b19; --muted:#6a6963; --line:#e2e0d8;
+    --accent:#a8480f; --accent-soft:#fbeadd; --ok:#1f7a48; --ok-soft:#e1f3e8;
+    --bad:#b3261e; --bad-soft:#fbe4e1; --warn:#8a6100; --warn-soft:#fbf0cf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#141412; --surface:#1d1d1a; --fg:#ecebe5; --muted:#9b9a93; --line:#302f2b;
+      --accent:#f0a36b; --accent-soft:#3a2617; --ok:#7fd3a1; --ok-soft:#16301f;
+      --bad:#f5a199; --bad-soft:#3a1a17; --warn:#e9c46a; --warn-soft:#33290f;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:1080px; margin:0 auto; padding:20px 16px 64px; }
+  h1 { font-size:22px; margin:0; text-wrap:balance; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 10px; font-weight:600; }
+  code, .mono { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
+  .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+  .badge { display:inline-block; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .badge.ok { background:var(--ok-soft); color:var(--ok); } .badge.bad { background:var(--bad-soft); color:var(--bad); }
+  .badge.warn { background:var(--warn-soft); color:var(--warn); } .badge.plain { background:var(--line); color:var(--muted); }
+  .badge.acc { background:var(--accent-soft); color:var(--accent); }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .steps { display:flex; gap:6px; margin-bottom:12px; }
+  .step { flex:1; min-width:0; border-top:4px solid var(--line); padding-top:6px; font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .step.done { border-color:var(--ok); color:var(--fg); }
+  .step.now { border-color:var(--accent); color:var(--accent); font-weight:700; }
+  .step.now.closed { border-color:var(--ok); color:var(--ok); } .step.now.failed { border-color:var(--bad); color:var(--bad); }
+  .now-line { display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  .now-title { font-size:18px; font-weight:700; }
+  .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; }
+  .grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; margin-top:16px; align-items:start; }
+  @media (max-width:760px) { .grid { grid-template-columns:minmax(0,1fr); } }
+  .col { display:grid; gap:16px; min-width:0; }
+  .people { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
+  .person { border:1px solid var(--line); border-radius:10px; padding:8px 10px; min-width:0; }
+  .person.off { border-style:dashed; color:var(--muted); }
+  .person .name { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .person .meta { font-size:12px; color:var(--muted); }
+  .person .did { font-size:12px; margin-top:4px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding:4px 8px 4px 0; }
+  td { padding:6px 8px 6px 0; border-top:1px solid var(--line); vertical-align:top; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; padding-right:0; padding-left:10px; }
+  tr.win td { font-weight:700; } tr.win td:first-child::before { content:"★ "; color:var(--accent); }
+  .empty { color:var(--muted); font-size:14px; }
+  .log { display:grid; gap:6px; }
+  .ev { display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:8px; align-items:baseline; padding:6px 0; border-top:1px solid var(--line); font-size:14px; }
+  .ev:first-child { border-top:0; }
+  .ev .n { color:var(--muted); font-variant-numeric:tabular-nums; font-size:12px; }
+  .ev .t { color:var(--muted); font-size:12px; white-space:nowrap; }
+  .ev .h { grid-column:2 / -1; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ev.sys .what { color:var(--muted); }
+  .ev.flag, .ev.rejected { background:var(--bad-soft); border-radius:8px; padding:6px 8px; border-top:0; }
+  .ev.flag .what, .ev.rejected .what { color:var(--bad); font-weight:600; }
+  .ev.phase .what { font-weight:700; color:var(--fg); }
+  label.toggle { font-size:12px; color:var(--muted); display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
+  .head-row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1 id="name">Cuarto</h1>
+      <div class="sub">Cada participante es un agente de IA que representa a una persona y solo conoce los límites que ella le dio. Se ponen de acuerdo por fases: nadie conversa libremente, cada mensaje tiene un formato fijo y queda en un registro que no se puede alterar sin que se note.</div>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap">
+      <span class="badge plain" id="conn">conectando…</span>
+      <span class="badge plain" id="integrity">log</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="steps" id="steps"></div>
+    <div class="now-line">
+      <div><div class="now-title" id="nowTitle"></div><div class="sub" id="nowText"></div></div>
+      <div class="clock" id="clock"></div>
+      <a id="ics" class="badge acc" hidden style="text-decoration:none" href="/rooms/__ROOM_ID__/agreement.ics">Agregar al calendario (.ics)</a>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="card"><h2>Participantes</h2><div class="sub" style="margin:-4px 0 8px">“Firma” significa que el agente firma cada mensaje con su propia llave y aceptó las reglas del cuarto.</div><div class="people" id="people"></div></div>
+      <div class="card"><h2>Opciones</h2><div class="sub" style="margin:-4px 0 8px">Las propone el facilitador: un programa del servidor, sin IA, que cruza las restricciones de todos con un catálogo fijo de lugares ficticios.</div><div id="options"></div></div>
+      <div class="card"><h2>Compromisos</h2><div id="commitments"></div></div>
+      <div class="card" id="flagsCard" hidden><h2>Banderas del supervisor</h2><div id="flags"></div></div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="head-row"><h2>Registro del cuarto</h2><label class="toggle"><input type="checkbox" id="showHash"> ver detalle y hashes</label></div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+const ROOM = "__ROOM_ID__";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const PHASES = ["open", "constraints", "options", "voting", "commitments", "closed"];
+const LABEL = { open:"Entrada", constraints:"Restricciones", options:"Opciones", voting:"Votación", commitments:"Compromisos", closed:"Acuerdo", failed:"Sin acuerdo" };
+const EXPLAIN = {
+  open: "Los delegados están entrando con su invitación. El cuarto arranca cuando están todos.",
+  constraints: "Cada delegado manda las restricciones de su persona. Solo el facilitador las ve; en el log queda un hash.",
+  options: "El facilitador cruza las restricciones con el catálogo y propone hasta tres lugares.",
+  voting: "Cada delegado aprueba las opciones que le sirven. El conteo se publica al cerrar la votación.",
+  commitments: "Cada quien confirma si asiste y alguien se encarga de reservar y entregar el código.",
+  closed: "Hay acuerdo y los compromisos se cumplieron.",
+  failed: "El cuarto terminó sin acuerdo.",
+};
+const REASON = {
+  room_full:"entraron todos", started_by_creator:"lo abrió el creador", deadline:"venció el plazo", all_submitted:"todos mandaron",
+  options_published:"opciones publicadas", all_voted:"todos votaron", all_fulfilled:"todo cumplido", blocked_retry:"sin opciones, segundo intento",
+  blocked:"sin opciones", no_quorum:"no votó suficiente gente", no_constraints:"nadie mandó restricciones", reserve_breached:"nadie entregó la reserva",
+  not_enough_participants:"no entró suficiente gente",
+};
+const BLOCK = { zones:"las zonas", days:"los días y horarios", budget:"el presupuesto", diet:"la dieta", music:"la música", capacity:"el cupo" };
+const DAY = { mon:"lunes", tue:"martes", wed:"miércoles", thu:"jueves", fri:"viernes", sat:"sábado", sun:"domingo" };
+const CSTATE = { open:"sin responsable", assigned:"asignado", accepted:"aceptado", fulfilled:"cumplido", breached:"incumplido", declined:"rechazado" };
+const FLAG = { injection_suspected:"nota sospechosa de inyección", impersonation_attempt:"intento de suplantación", replay_attempt:"mensaje reenviado", bad_signature:"firma inválida", rate_limited:"demasiados mensajes" };
+const ACTION = { note_hidden:"la nota no se guardó", message_rejected:"mensaje rechazado", messages_rejected:"mensajes rechazados" };
+const SYS = ["server", "facilitator", "supervisor"];
+let data = null, skew = 0;
+
+function describe(e, who) {
+  const b = e.body || {};
+  switch (e.type) {
+    case "room_created": return "Se creó el cuarto";
+    case "join": return "El agente de " + who(e.from) + " entró desde " + esc(b.platform) + (e.signed ? " y firmó las reglas" : ", sin firma");
+    case "key_rotated": return who(e.from) + " registró una llave nueva";
+    case "phase": return "Fase: " + esc(LABEL[b.to] || b.to) + (b.reason ? " · " + (REASON[b.reason] || esc(b.reason)) : "");
+    case "constraints": return who(e.from) + " mandó sus restricciones (solo las ve el facilitador)";
+    case "options": return "El facilitador propuso " + (b.options || []).length + " opciones";
+    case "blocked": return b.message ? esc(b.message) + (b.rounds_left > 0 ? " Quedan " + esc(b.rounds_left) + " intentos." : "") : "Ningún lugar cumple con todos: bloquean " + (BLOCK[b.blocking] || esc(b.blocking));
+    case "vote": return who(e.from) + " votó (se publica solo el conteo)";
+    case "commitments": return "El facilitador creó los compromisos";
+    case "volunteer": return who(e.from) + " se ofreció a reservar";
+    case "commit": {
+      const reserve = String(b.commitment_id) === "c_reserve";
+      if (reserve) return who(e.from) + (b.accept ? " aceptó encargarse de la reserva" : " rechazó encargarse de la reserva");
+      return who(e.from) + (b.accept ? " confirmó que asiste" : " avisó que no asiste");
+    }
+    case "fulfill": return who(e.from) + " entregó el código de la reserva: " + esc(b.evidence && b.evidence.confirmation);
+    case "commitment": return esc(b.commitment_id) + " → " + (CSTATE[b.state] || esc(b.state));
+    case "rejected": return "Rechazado: " + who(b.participant) + " mandó " + esc(b.attempted_type || "algo inválido") + " · " + esc(b.reason);
+    case "flag": return "Bandera: " + (FLAG[b.kind] || esc(b.kind)) + " de " + who(b.participant) + " · " + (ACTION[b.action] || esc(b.action));
+    default: return esc(e.type);
+  }
+}
+
+function render() {
+  const d = data; if (!d) return;
+  const names = Object.fromEntries(d.participants.map((p) => [p.id, p.display_name || p.label]));
+  const who = (id) => "<b>" + esc(names[id] || id) + "</b>";
+  document.title = d.name + " · " + (LABEL[d.phase] || d.phase);
+  $("name").textContent = d.name;
+
+  const idx = PHASES.indexOf(d.phase);
+  $("steps").innerHTML = PHASES.map((p, i) => {
+    const failed = d.phase === "failed";
+    const cls = failed ? (p === "closed" ? "now failed" : "") : (i < idx ? "done" : i === idx ? "now " + p : "");
+    return '<div class="step ' + cls + '">' + (failed && p === "closed" ? LABEL.failed : LABEL[p]) + "</div>";
+  }).join("");
+  $("nowTitle").textContent = LABEL[d.phase] || d.phase;
+  let text = EXPLAIN[d.phase] || "";
+  if (d.phase === "failed") { const last = d.events.filter((e) => e.type === "phase").pop(); if (last) text += " Motivo: " + (REASON[last.body.reason] || last.body.reason) + "."; }
+  if (d.phase === "closed" && d.agreement) text = "Quedaron en " + d.agreement.venue + ", zona " + d.agreement.zone + ", el " + (DAY[d.agreement.day] || d.agreement.day) + " " + d.agreement.date.split("-").reverse().join("/") + " a las " + d.agreement.time + " (hora de " + d.agreement.timezone.split("/").pop().replace(/_/g, " ") + "), $" + d.agreement.price_mxn + " MXN por persona. Reserva " + (d.agreement.confirmation || "sin código") + " a nombre de " + d.agreement.reserved_by + ".";
+  else if (d.phase === "closed" && d.winner) text = "Quedaron en " + (d.venues[d.winner.venue_id] || d.winner.venue_id) + ", " + d.winner.zone + ", " + (DAY[d.winner.day] || d.winner.day) + " a las " + d.winner.time + ", $" + d.winner.price_mxn + " MXN por persona.";
+  $("nowText").textContent = text;
+  $("ics").hidden = !d.agreement;
+
+  const v = d.integrity;
+  $("integrity").textContent = v.ok ? "registro verificado, sin alteraciones · " + v.events + " eventos" : "REGISTRO ALTERADO en el evento #" + v.broken_at;
+  $("integrity").className = "badge " + (v.ok ? "ok" : "bad");
+
+  // Qué hizo cada quien en la ronda actual.
+  const lastStart = d.events.filter((e) => e.type === "phase" && e.body.to === "constraints").pop();
+  const since = lastStart ? lastStart.seq : 0;
+  const did = (id, type) => d.events.some((e) => e.from === id && e.type === type && e.seq > since);
+  $("people").innerHTML = d.participants.map((p) => {
+    if (!p.joined_at) return '<div class="person off"><div class="name">' + esc(p.label) + '</div><div class="meta">todavía no entra</div></div>';
+    const mine = d.commitments.filter((c) => c.assignee === p.id);
+    const bits = [];
+    if (did(p.id, "constraints")) bits.push("restricciones ✓");
+    if (did(p.id, "vote")) bits.push("voto ✓");
+    const att = mine.find((c) => c.task === "attend");
+    if (att && att.state === "fulfilled") bits.push("confirmó asistencia ✓");
+    if (att && att.state === "declined") bits.push("no asiste");
+    if (mine.some((c) => c.task === "reserve")) bits.push("encargado de reservar");
+    return '<div class="person"><div class="name">' + esc(p.display_name) + (d.honoree === p.label ? " 🎂 festejado" : "") + '</div><div class="meta">agente en ' + esc(p.platform) +
+      ' · <span class="badge ' + (p.signed ? "ok" : "warn") + '">' + (p.signed ? "firma" : "sin firma") + '</span></div><div class="did">' + (bits.join(" · ") || "&nbsp;") + "</div></div>";
+  }).join("");
+
+  if (!d.options.length) $("options").innerHTML = '<div class="empty">' + (idx <= 1 ? "Aparecen cuando todos mandan sus restricciones." : "No hay opciones.") + "</div>";
+  else $("options").innerHTML = '<table><tr><th>Lugar</th><th>Cuándo</th><th class="num">MXN por persona</th><th class="num">Votos</th></tr>' + d.options.map((o) =>
+    '<tr class="' + (d.winner && d.winner.option_id === o.option_id ? "win" : "") + '"><td>' + esc(d.venues[o.venue_id] || o.venue_id) + '<div class="sub">' + esc(o.option_id) + " · zona <span style=\"text-transform:capitalize\">" + esc(o.zone) + "</span>" +
+    "</div></td><td>" + esc(DAY[o.day] || o.day) + " " + esc(o.time) + '</td><td class="num">$' + esc(o.price_mxn) + '</td><td class="num">' + (d.tally ? esc(d.tally[o.option_id]) : "—") + "</td></tr>").join("") + "</table>" +
+    '<div class="sub" style="margin-top:6px">' + (d.tally ? "Cada agente aprueba todas las opciones que le sirven. Gana la que tiene más votos; si hay empate, la más barata. ★ marca la ganadora." : "Los votos se publican cuando cierra la votación.") + "</div>";
+
+  if (!d.commitments.length) $("commitments").innerHTML = '<div class="empty">Se crean cuando hay una opción ganadora.</div>';
+  else $("commitments").innerHTML = "<table>" + d.commitments.map((c) => {
+    const cls = c.state === "fulfilled" ? "ok" : c.state === "breached" || c.state === "declined" ? "bad" : c.state === "open" ? "warn" : "acc";
+    return "<tr><td>" + (c.task === "reserve" ? "Reservar el lugar" : "Asistir") + "</td><td>" + (c.assignee ? esc(names[c.assignee] || c.assignee) : "—") +
+      '</td><td class="num"><span class="badge ' + cls + '">' + (c.task === "attend" && c.state === "fulfilled" ? "confirmó" : c.task === "reserve" && c.state === "fulfilled" ? "código entregado" : esc(CSTATE[c.state] || c.state)) + "</span></td></tr>";
+  }).join("") + "</table>";
+
+  const flags = d.events.filter((e) => e.type === "flag");
+  $("flagsCard").hidden = !flags.length;
+  $("flags").innerHTML = flags.map((e) => '<div class="ev flag"><span class="n">#' + esc(e.seq) + '</span><span class="what">' + describe(e, who).replace("Bandera: ", "") + '</span><span class="t">' + new Date(e.ts).toLocaleTimeString() + "</span></div>").join("");
+
+  const showHash = $("showHash").checked;
+  const atBottom = innerHeight + scrollY >= document.body.offsetHeight - 60;
+  const hidden = showHash ? 0 : d.events.filter((e) => e.type === "commitment").length;
+  $("log").innerHTML = (hidden ? '<div class="sub">Se muestran los eventos principales. Hay ' + hidden + ' eventos de detalle (cambios de estado de compromisos) que aparecen al marcar “ver detalle y hashes”.</div>' : "") + d.events.filter((e) => e.type !== "commitment" || showHash).map((e) =>
+    '<div class="ev ' + esc(e.type) + (SYS.includes(e.from) ? " sys" : "") + '"><span class="n">#' + esc(e.seq) + '</span><span class="what">' + describe(e, who) +
+    '</span><span class="t">' + new Date(e.ts).toLocaleTimeString() + "</span>" +
+    (showHash ? '<span class="h mono">' + esc(String(e.hash).slice(0, 20)) + "… ← " + esc(String(e.prev_hash).slice(0, 20)) + "…</span>" : "") + "</div>").join("");
+  if (atBottom && d.events.length > 12) scrollTo(0, document.body.scrollHeight);
+  tickClock();
+}
+
+function tickClock() {
+  if (!data) return;
+  if (!data.phase_deadline) { $("clock").textContent = ""; return; }
+  const left = Math.max(0, Math.round((Date.parse(data.phase_deadline) - (Date.now() + skew)) / 1000));
+  const m = Math.floor(left / 60), s = left % 60;
+  $("clock").textContent = (m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + ":" + String(s).padStart(2, "0"));
+  $("clock").title = "Tiempo que queda en esta fase";
+}
+
+function take(d) { data = d; skew = Date.parse(d.server_time) - Date.now(); render(); }
+function conn(text, cls) { $("conn").textContent = text; $("conn").className = "badge " + cls; }
+
+// En vivo por SSE; si el flujo no está disponible, vuelve a leer el log cada 2 segundos.
+let poll = null;
+function startPolling() {
+  if (poll) return;
+  conn("actualizando cada 2 s", "plain");
+  const go = () => fetch("/rooms/" + ROOM + "/log").then((r) => r.json()).then(take).catch(() => conn("sin conexión", "bad"));
+  go(); poll = setInterval(go, 2000);
+}
+try {
+  const es = new EventSource("/rooms/" + ROOM + "/events");
+  es.addEventListener("room", (m) => {
+    if (poll) { clearInterval(poll); poll = null; }
+    const d = JSON.parse(m.data);
+    conn(d.phase === "closed" || d.phase === "failed" ? "terminado" : "en vivo", d.phase === "closed" || d.phase === "failed" ? "plain" : "ok");
+    take(d);
+  });
+  es.onerror = () => { if (es.readyState === 2) startPolling(); else conn("reconectando…", "warn"); };
+} catch (e) { startPolling(); }
+$("showHash").addEventListener("change", render);
+setInterval(tickClock, 1000);
+</script>
+</body>
+</html>

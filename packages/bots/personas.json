@@ -1,0 +1,26 @@
+{
+  "carla": {
+    "display_name": "Carla",
+    "platform": "bot",
+    "constraints": { "budget_max_mxn": 800, "days": [{ "day": "sat" }], "zones": ["roma", "condesa", "polanco"], "diet": ["no-seafood"] },
+    "may_volunteer": []
+  },
+  "diego": {
+    "display_name": "Diego",
+    "platform": "bot",
+    "constraints": { "budget_max_mxn": 500, "days": [{ "day": "fri" }, { "day": "sat" }, { "day": "sun" }], "zones": ["any"], "needs_music": true },
+    "may_volunteer": []
+  },
+  "ana": {
+    "display_name": "Ana",
+    "platform": "bot",
+    "constraints": { "budget_max_mxn": 600, "days": [{ "day": "sat", "from": "19:00" }, { "day": "sun", "from": "19:00" }], "zones": ["roma", "condesa"], "diet": ["vegetarian"] },
+    "may_volunteer": ["reserve"]
+  },
+  "beto": {
+    "display_name": "Beto",
+    "platform": "bot",
+    "constraints": { "budget_max_mxn": 450, "days": [{ "day": "fri" }, { "day": "sat" }], "zones": ["roma", "juarez", "centro"] },
+    "may_volunteer": []
+  }
+}

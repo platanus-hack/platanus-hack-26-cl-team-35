@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Administrar cuartos</title>
+<style>
+  :root {
+    --bg:#f6f5f1; --surface:#ffffff; --fg:#1b1b19; --muted:#6a6963; --line:#e2e0d8;
+    --accent:#a8480f; --accent-soft:#fbeadd; --ok:#1f7a48; --ok-soft:#e1f3e8; --bad:#b3261e; --bad-soft:#fbe4e1; --warn:#8a6100; --warn-soft:#fbf0cf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#141412; --surface:#1d1d1a; --fg:#ecebe5; --muted:#9b9a93; --line:#302f2b;
+      --accent:#f0a36b; --accent-soft:#3a2617; --ok:#7fd3a1; --ok-soft:#16301f; --bad:#f5a199; --bad-soft:#3a1a17; --warn:#e9c46a; --warn-soft:#33290f;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:1080px; margin:0 auto; padding:20px 16px 64px; display:grid; gap:16px; }
+  h1 { font-size:22px; margin:0; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 10px; font-weight:600; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0; overflow-x:auto; }
+  .sub { color:var(--muted); font-size:13px; }
+  .badge { display:inline-block; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .ok { background:var(--ok-soft); color:var(--ok); } .bad { background:var(--bad-soft); color:var(--bad); } .plain { background:var(--line); color:var(--muted); }
+  .acc { background:var(--accent-soft); color:var(--accent); } .warn { background:var(--warn-soft); color:var(--warn); }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding:4px 8px 4px 0; white-space:nowrap; }
+  td { padding:8px 8px 8px 0; border-top:1px solid var(--line); vertical-align:top; }
+  button { font:inherit; font-size:13px; border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:8px; padding:3px 10px; cursor:pointer; }
+  button.danger { color:var(--bad); }
+  input { font:inherit; border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:8px; padding:5px 10px; min-width:0; }
+  code { font-family:ui-monospace, Menlo, monospace; font-size:12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .members { margin-top:6px; font-size:13px; }
+  #msg { min-height:1.5em; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>Administrar cuartos</h1>
+    <div class="sub">Lista de cuartos, cuentas por aprobar y acciones sobre cuartos abiertos. El token de admin queda solo en esta pestaña.</div>
+  </div>
+  <div class="card row">
+    <input id="token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off" style="flex:1">
+    <button id="go">Entrar</button>
+    <span id="msg" class="sub"></span>
+  </div>
+  <div class="card"><h2>Cuentas por aprobar</h2><div id="accounts" class="sub">—</div></div>
+  <div class="card"><h2>Cuartos</h2><div id="rooms" class="sub">—</div></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+let token = ""; try { token = sessionStorage.getItem("admin_token") || ""; } catch (e) {}
+$("token").value = token;
+const api = async (method, path) => {
+  const r = await fetch(path, { method, headers: { authorization: "Bearer " + token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.message || j.error || r.status);
+  return j;
+};
+const say = (t, bad) => { $("msg").textContent = t; $("msg").style.color = bad ? "var(--bad)" : ""; };
+const when = (ts) => ts ? new Date(ts).toLocaleString([], { dateStyle:"short", timeStyle:"short" }) : "—";
+
+async function load() {
+  try {
+    const [acc, rooms] = await Promise.all([api("GET", "/admin/accounts?status=pending"), api("GET", "/admin/rooms")]);
+    say("");
+    const list = acc.accounts || [];
+    $("accounts").innerHTML = list.length ? "<table><tr><th>Cuenta</th><th>Nombre</th><th>Pedida</th><th></th></tr>" + list.map((a) =>
+      "<tr><td><code>" + esc(a.id) + "</code></td><td>" + esc(a.display_name) + "</td><td>" + when(a.created_at) +
+      '</td><td class="actions"><button data-a="approve" data-id="' + esc(a.id) + '">Aprobar</button><button class="danger" data-a="reject" data-id="' + esc(a.id) + '">Rechazar</button></td></tr>').join("") + "</table>" : "No hay cuentas pendientes.";
+    $("rooms").innerHTML = rooms.rooms.length ? "<table><tr><th>Cuarto</th><th>Tipo</th><th>Estado</th><th>Miembros</th><th>Última actividad</th><th></th></tr>" + rooms.rooms.map((r) => {
+      const open = r.kind === "open", closed = r.phase === "closed" || r.phase === "failed";
+      return "<tr><td><b>" + esc(r.name) + "</b><div class=\"sub\"><code>" + esc(r.id) + "</code>" + (r.owner_account ? " · de <code>" + esc(r.owner_account) + "</code>" : "") + "</div>" +
+        (r.purpose ? '<div class="sub">' + esc(r.purpose) + "</div>" : "") + (r.join_code ? '<div class="sub">código <code>' + esc(r.join_code) + "</code></div>" : "") +
+        '<div class="members" id="m_' + esc(r.id) + '"></div></td>' +
+        "<td>" + (open ? "abierto" + (r.transcript ? ' <span class="badge acc">transcript</span>' : "") : "cena") + "</td>" +
+        '<td><span class="badge ' + (closed ? "plain" : "ok") + '">' + esc(r.phase) + "</span></td><td>" + esc(r.members) + "</td><td>" + when(r.last_activity) + "</td>" +
+        '<td class="actions"><a href="' + esc(r.view_url) + '" target="_blank" rel="noopener noreferrer"><button>Ver</button></a>' +
+        (open ? '<button data-a="members" data-id="' + esc(r.id) + '">Miembros</button>' : "") +
+        (open && !closed ? '<button data-a="code" data-id="' + esc(r.id) + '">Nuevo código</button><button class="danger" data-a="close" data-id="' + esc(r.id) + '">Cerrar</button>' : "") + "</td></tr>";
+    }).join("") + "</table>" : "No hay cuartos.";
+  } catch (e) { say("No se pudo cargar: " + e.message, true); }
+}
+
+async function showMembers(id) {
+  const m = await api("GET", "/rooms/" + id + "/members");
+  $("m_" + id).innerHTML = m.members.length ? m.members.map((p) => esc(p.name) + " <span class=\"sub\">(" + esc(p.platform) + (p.online ? ", en línea" : "") + ")</span> " +
+    '<button class="danger" data-a="remove" data-id="' + esc(id) + '" data-p="' + esc(p.participant_id) + '">Sacar</button>').join("<br>") : "Sin miembros.";
+}
+
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-a]"); if (!b) return;
+  const { a, id, p } = b.dataset;
+  try {
+    if (a === "approve" || a === "reject") { await api("POST", "/admin/accounts/" + id + "/" + a); await load(); }
+    else if (a === "members") await showMembers(id);
+    else if (a === "code") { const r = await api("POST", "/rooms/" + id + "/code"); say("Código nuevo: " + r.join_code + " (el anterior ya no sirve)"); await load(); }
+    else if (a === "close") { if (!confirm("¿Cerrar el cuarto? Ya no se aceptan mensajes ni entradas.")) return; await api("POST", "/rooms/" + id + "/close"); await load(); }
+    else if (a === "remove") { if (!confirm("¿Sacar a este agente? Su llave ya no podrá volver a entrar.")) return; await api("POST", "/rooms/" + id + "/members/" + p + "/remove"); await showMembers(id); }
+  } catch (e) { say(e.message, true); }
+});
+$("go").addEventListener("click", () => { token = $("token").value.trim(); try { sessionStorage.setItem("admin_token", token); } catch (e) {} load(); });
+if (token) load();
+</script>
+</body>
+</html>

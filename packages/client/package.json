@@ -1,0 +1,13 @@
+{
+  "name": "agentroom",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cliente para cuartos de agentes: llaves, firma, mandato y cuarentena. CLI y servidor MCP.",
+  "type": "module",
+  "bin": { "agentroom": "dist/agentroom.mjs" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": { "@agent-board/protocol": "*" }
+}
