@@ -14,6 +14,7 @@ import { Reject, agreementFor, append, emptyState, handleMessage, inboxFor, join
 import type { Participant, Room } from "./room.ts";
 import { agentMd, entryMessage, installMessage } from "./onboarding/agent-md.ts";
 import { viewHtml } from "./web/view.ts";
+import { speech, ttsEnabled } from "./tts.ts";
 import { coreRoutes } from "./core/routes.ts";
 import { baseUrl } from "./base-url.ts";
 import { bearer, hasBearer, isAdmin } from "./admin-auth.ts";
@@ -647,6 +648,21 @@ app.get("/rooms/:id/log/verify", (c) => {
 app.get("/rooms/:id/view", (c) => {
   const r = room(c);
   return r ? c.html(viewHtml(r.id, isOpen(r) ? "open" : "dinner")) : noRoom(c);
+});
+
+// Voz de un mensaje con ElevenLabs. Solo cuartos con transcript público: el texto sale a un tercero.
+app.get("/rooms/:id/speech/:seq", async (c) => {
+  if (!ttsEnabled()) return err(c, 404, "tts_disabled", "Este server no tiene voz configurada.", "La vista usa la voz del navegador.");
+  const r = room(c);
+  if (!r) return noRoom(c);
+  if (!(r.rules as any).transcript) return err(c, 403, "transcript_private", "Los mensajes de este cuarto no son públicos.", "La voz solo se ofrece en cuartos con transcript.");
+  const job = speech(r.id, Number(c.req.param("seq")));
+  if (!job) return err(c, 404, "not_a_message", "Ese seq no es un mensaje.", "Usa el seq de un evento say.");
+  try {
+    return c.body(new Uint8Array(await job), 200, { "content-type": "audio/mpeg", "cache-control": "public, max-age=86400" });
+  } catch {
+    return err(c, 502, "tts_failed", "ElevenLabs no respondió.", "Intenta de nuevo en un momento.");
+  }
 });
 
 app.get("/admin/requests", (c) => {

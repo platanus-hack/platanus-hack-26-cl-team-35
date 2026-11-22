@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; media-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Cuarto en vivo</title>
 <style>
   :root {
@@ -351,8 +351,19 @@ function renderScene(members, events) {
   }).join("");
 }
 
-// Voz del navegador, solo cuando alguien la pide con el botón.
-const CAN_SPEAK = "speechSynthesis" in window;
+// Voz: ElevenLabs si el server la tiene, si no la del navegador. Solo cuando alguien la pide con el botón.
+const CAN_SPEAK = "speechSynthesis" in window || "Audio" in window;
+let SERVER_VOICE = true, playing = null;
+async function speakMsg(e, a) {
+  if (playing) { playing.pause(); playing = null; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  if (SERVER_VOICE) {
+    const r = await fetch("/rooms/" + ROOM + "/speech/" + e.seq).catch(() => null);
+    if (r && r.ok) { playing = new Audio(URL.createObjectURL(await r.blob())); playing.play(); return; }
+    if (r && r.status === 404 && (await r.json().catch(() => ({}))).error === "tts_disabled") SERVER_VOICE = false;
+  }
+  if ("speechSynthesis" in window) speak(e.body.text, a);
+}
 function speak(text, a) {
   const v = (a && a.voice) || {}, u = new SpeechSynthesisUtterance(text);
   if (typeof v.pitch === "number") u.pitch = v.pitch;
@@ -431,7 +442,7 @@ function take(d) { data = d; render(); }
 $("chat").addEventListener("click", (ev) => {
   const btn = ev.target.closest(".say-btn"); if (!btn || !data) return;
   const e = data.events.find((x) => String(x.seq) === btn.dataset.seq);
-  if (e && e.body && typeof e.body.text === "string") speak(e.body.text, avatars[e.from]);
+  if (e && e.body && typeof e.body.text === "string") speakMsg(e, avatars[e.from]);
 });
 function conn(text, cls) { $("conn").textContent = text; $("conn").className = "badge " + cls; }
 let poll = null;
