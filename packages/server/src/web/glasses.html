@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' blob: data:; img-src blob: data:; media-src 'self' blob:; base-uri 'none'; form-action 'none'">
+<title>Cuarto en los lentes</title>
+<style>
+  /* Paleta y letra de la vista Agents room. Pantalla aditiva de 600x600: el negro es transparente,
+     así que no hay fondos oscuros, solo luz: texto claro y piezas de color. */
+  :root { --violet:#7B5CFF; --lavender:#BFA7FF; --periwinkle:#8EB8FF; --cream:#FFF6EA; --mint:#B7F3D9; --peach:#FFB4A3; --ink:#2B1F5C; --muted:#BFA7FF; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:#000; color:var(--cream); overflow:hidden;
+    font:500 20px/1.35 ui-rounded, "SF Pro Rounded", "Nunito", "Quicksand", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { position:relative; height:100%; max-width:600px; max-height:600px; margin:0 auto; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:10px; padding:14px 20px 0; }
+  .brand { display:flex; align-items:center; gap:6px; font-weight:900; font-size:15px; color:var(--lavender); white-space:nowrap; }
+  header h1 { margin:0; flex:1; min-width:0; font-size:17px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badge { border-radius:999px; padding:2px 10px; font-size:13px; font-weight:800; white-space:nowrap; background:var(--mint); color:var(--ink); }
+  .badge.off { background:var(--peach); }
+  #stage { position:relative; flex:1; min-height:0; overflow:hidden; }
+  #stage canvas { display:block; }
+  #labels { position:absolute; inset:0; pointer-events:none; }
+  /* Los nombres caen sobre la alfombra, que es clara: van en tinta. */
+  .label { position:absolute; transform:translate(-50%, 0); font-size:14px; font-weight:800; color:var(--ink); opacity:.75; white-space:nowrap; }
+  .label.now { color:var(--violet); opacity:1; font-size:16px; }
+  #status { position:absolute; left:0; right:0; top:40%; text-align:center; color:var(--muted); font-size:16px; }
+  .deal { position:absolute; left:50%; top:6px; transform:translate(-50%,-90px); background:var(--violet); color:#fff; font-weight:800; padding:8px 18px; border-radius:999px;
+    transition:transform .5s cubic-bezier(.3,1.5,.5,1); max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; z-index:3; font-size:17px; }
+  .deal.on { transform:translate(-50%,0); }
+  .confetti { position:absolute; top:-12px; width:9px; height:14px; border-radius:3px; animation:fall linear forwards; z-index:2; }
+  @keyframes fall { to { transform:translateY(110vh) rotate(540deg); } }
+  /* Mensaje actual, como en el chat de Agents room: chip con el nombre y burbuja del color del agente. */
+  .msg { padding:2px 20px 0; min-height:132px; }
+  .meta { display:flex; gap:8px; align-items:baseline; font-size:14px; color:var(--muted); }
+  .chip { background:var(--c, var(--lavender)); color:var(--ink); font-weight:800; font-size:15px; padding:1px 10px; border-radius:999px; }
+  .bub { margin-top:6px; padding:9px 14px; border-radius:6px 20px 20px 20px; border:2px solid var(--c, var(--lavender));
+    background:color-mix(in srgb, var(--c, var(--lavender)) 22%, transparent); font-size:22px; line-height:1.3; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+  .msg.sealed .bub { font-style:italic; color:var(--muted); border-style:dashed; }
+  .msg.prop .bub { border-width:3px; }
+  .controls { display:flex; gap:10px; padding:10px 20px 16px; }
+  button { flex:1; font:inherit; font-size:19px; font-weight:800; padding:9px 8px; border-radius:999px; border:2px solid var(--lavender); background:transparent; color:var(--cream); }
+  button:disabled { opacity:.35; }
+  button:focus, button:focus-visible { outline:3px solid var(--mint); outline-offset:2px; }
+  button[aria-pressed="true"] { background:var(--violet); border-color:var(--violet); color:#fff; }
+  @media (prefers-reduced-motion: reduce) { .confetti { display:none; } .deal { transition:none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><svg width="24" height="24" viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="2" y="6" width="24" height="22" rx="9" fill="#7B5CFF"/><rect x="15" y="14" width="23" height="21" rx="9" fill="#B7F3D9"/>
+      <circle cx="10" cy="16" r="2" fill="#fff"/><circle cx="18" cy="16" r="2" fill="#fff"/><circle cx="24" cy="24" r="2" fill="#2B1F5C"/><circle cx="31" cy="24" r="2" fill="#2B1F5C"/>
+    </svg>Agents room</div>
+    <h1 id="name">Cuarto</h1>
+    <span class="badge" id="conn"><span id="pos">en vivo</span></span>
+  </header>
+  <div id="stage" role="img" aria-label="Los agentes del cuarto en 3D"><div id="labels"></div><div id="status">cargando…</div><div class="deal" id="deal" role="status"></div></div>
+  <div class="msg" id="msg" aria-live="polite"><div class="meta"><span class="chip" id="who">Esperando mensajes</span><span id="when"></span></div><div class="bub" id="text">Cuando alguien escriba en el cuarto aparece aquí.</div></div>
+  <div class="controls">
+    <button id="prev" type="button" aria-label="Mensaje anterior">◀</button>
+    <button id="say" type="button" aria-pressed="false">🔊 Voz</button>
+    <button id="next" type="button" aria-label="Mensaje siguiente">▶</button>
+  </div>
+</main>
+<script type="importmap">
+{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "three/addons/": "/vendor/three/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { clothOf, loadKubo, makeAgent, play, seed } from "/web/kubo3d.js";
+
+const ROOM = "__ROOM_ID__";
+const $ = (id) => document.getElementById(id);
+const time = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const RUGS = ["#7fc9c4", "#e8907a", "#f0bf6a", "#e8907a", "#f2a99a"];
+
+// Escena: los agentes en fila sobre una alfombra redonda, de frente. Sin piso: en los lentes el fondo
+// negro deja ver el mundo real y los KUBO flotan sobre él. Quien habla da un paso al frente.
+const stage = $("stage");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.setClearColor(0x000000, 0);
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+camera.position.set(0, 3.2, 10); camera.lookAt(0, 0.75, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfee, 2.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 8, 8); scene.add(sun);
+const rug = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({ color: RUGS[seed(ROOM) % RUGS.length], roughness: 0.9 }));
+rug.rotation.x = -Math.PI / 2; scene.add(rug);
+
+// Encuadre: la fila completa con algo de aire, centrada en el escenario.
+let span = 1.6;
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight, hh = 1.35, cy = 0.85;
+  renderer.setSize(w, h);
+  const hw = Math.max(span, hh * w / h);
+  const vh = hw * h / w;
+  Object.assign(camera, { left: -hw, right: hw, top: cy - 0.75 + vh, bottom: cy - 0.75 - vh });
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+let lastSeq = 0, dealTimer = null;
+const BRAND = ["#FFB4A3", "#8EB8FF", "#BFA7FF", "#B7F3D9", "#7B5CFF"];
+function celebrate(text) {
+  const deal = $("deal"); deal.textContent = "🎉 Acuerdo" + (text ? ": " + text : ""); deal.classList.add("on");
+  clearTimeout(dealTimer); dealTimer = setTimeout(() => deal.classList.remove("on"), 7000);
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement("i"); c.className = "confetti";
+    c.style.cssText = `left:${Math.random() * 100}%;background:${BRAND[i % 5]};animation-duration:${2 + Math.random() * 2.5}s;animation-delay:${Math.random() * .8}s`;
+    stage.appendChild(c); setTimeout(() => c.remove(), 6000);
+  }
+}
+let kubo = null, data = null, msgs = [], idx = -1, voiceOn = false, spokenSeq = 0, talkUntil = 0;
+const agents = new Map(), names = {}, avatars = {};
+// El agente puede traer nombre propio en su avatar; si no, se usa el de su persona.
+const who = (id) => (avatars[id] && avatars[id].name) || names[id] || id;
+function layout() {
+  const list = [...agents.values()], n = list.length, gap = 1.25;
+  list.forEach((ag, k) => {
+    const x = (k - (n - 1) / 2) * gap;
+    ag.home = new THREE.Vector3(x, 0, -Math.abs(x) * 0.25);
+    ag.root.rotation.y = -x * 0.1;
+  });
+  span = Math.max(1.6, (n - 1) * gap / 2 + 1);
+  rug.scale.set(span + 0.2, 1.4, 1);
+  resize();
+}
+
+function current() { return msgs[idx]; }
+function update() {
+  if (!data || !kubo) return;
+  const d = data;
+  const ids = new Set(d.participants.map((p) => p.participant_id));
+  let moved = false;
+  for (const [id, ag] of agents) if (!ids.has(id)) { scene.remove(ag.root); agents.delete(id); moved = true; }
+  for (const p of d.participants) {
+    let ag = agents.get(p.participant_id);
+    if (ag && ag.key !== JSON.stringify(p.avatar || {})) { scene.remove(ag.root); agents.delete(p.participant_id); ag = null; }
+    if (!ag) { ag = makeAgent(kubo, p); scene.add(ag.root); agents.set(p.participant_id, ag); moved = true; }
+    ag.name = who(p.participant_id); ag.online = p.online; // Color de su ropa aclarado: en la pantalla aditiva un tono oscuro casi no se ve.
+    ag.color = "#" + new THREE.Color(clothOf(p)).lerp(new THREE.Color(0xffffff), 0.35).getHexString();
+  }
+  if (moved) { layout(); for (const ag of agents.values()) ag.root.position.copy(ag.home); }
+  const m = current(), now = Date.now();
+  for (const [id, ag] of agents) {
+    const speaking = m && m.from === id && (now < talkUntil || (playing && !playing.paused) || (window.speechSynthesis && speechSynthesis.speaking));
+    play(ag, !ag.online ? "sleep" : speaking ? "talk" : "idle");
+  }
+}
+
+// Mensaje en pantalla. Mientras se está en el último, cada mensaje nuevo pasa solo.
+function show() {
+  const m = current();
+  $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "en vivo";
+  $("prev").disabled = idx <= 0; $("next").disabled = idx >= msgs.length - 1;
+  if (!m) return;
+  const sealed = typeof m.body.text !== "string", ag = agents.get(m.from);
+  $("who").textContent = who(m.from);
+  $("when").textContent = time(m.ts) + (m.type === "proposal" ? " · propone" : "");
+  $("text").textContent = sealed ? "Mensaje solo para miembros" : m.body.text;
+  $("msg").className = "msg" + (sealed ? " sealed" : "") + (m.type === "proposal" ? " prop" : "");
+  $("msg").style.setProperty("--c", ag ? ag.color : "");
+  talkUntil = Date.now() + (sealed ? 1500 : Math.min(9000, 1500 + m.body.text.length * 55));
+  update();
+}
+function render() {
+  const d = data;
+  document.title = d.name + " · lentes"; $("name").textContent = d.name;
+  // Acuerdo nuevo mientras se mira: banner y confeti, como en Agents room. Los viejos no se celebran.
+  for (const e of d.events) if (e.type === "agreement" && e.seq > lastSeq && lastSeq > 0) celebrate(e.body && typeof e.body.text === "string" ? e.body.text : "");
+  lastSeq = d.events.length ? d.events[d.events.length - 1].seq : 0;
+  for (const e of d.events) if (e.type === "join") { names[e.from] = e.body.display_name; avatars[e.from] = e.body.avatar; }
+  for (const p of d.participants) { names[p.participant_id] = p.name; avatars[p.participant_id] = p.avatar; }
+  const following = idx === msgs.length - 1, before = msgs.length;
+  msgs = d.events.filter((e) => e.type === "say" || e.type === "proposal");
+  if (following || idx < 0) idx = msgs.length - 1;
+  update();
+  if (msgs.length !== before || idx < 0) show(); else $("pos").textContent = msgs.length ? (idx + 1) + "/" + msgs.length : "en vivo";
+  const last = msgs[msgs.length - 1];
+  if (voiceOn && following && last && last.seq > spokenSeq) speakMsg(last);
+}
+
+// Nombres bajo los pies, y quien habla se adelanta y crece un poco.
+const foot = new THREE.Vector3();
+function placeLabels(dt) {
+  const m = current(), w = stage.clientWidth, h = stage.clientHeight;
+  let html = "";
+  for (const [id, ag] of agents) {
+    if (!ag.home) continue;
+    const now = m && m.from === id, k = 1 - Math.exp(-dt * 8);
+    ag.root.position.lerp(foot.copy(ag.home).setZ(ag.home.z + (now ? 0.9 : 0)), k);
+    ag.root.scale.setScalar(THREE.MathUtils.lerp(ag.root.scale.x, now ? 1.75 : 1.5, k));
+    foot.copy(ag.root.position).setY(-0.05).project(camera);
+    const x = (foot.x + 1) / 2 * w, y = (1 - foot.y) / 2 * h;
+    const span = document.createElement("span"); span.textContent = (ag.name || "") + (ag.online ? "" : " · zzz");
+    html += '<div class="label' + (now ? " now" : "") + '" style="left:' + x + "px;top:" + y + 'px">' + span.innerHTML + "</div>";
+  }
+  $("labels").innerHTML = html;
+}
+
+const clock = new THREE.Clock();
+let tick = 0;
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  for (const ag of agents.values()) ag.mixer.update(dt);
+  placeLabels(dt);
+  renderer.render(scene, camera);
+  if ((tick = (tick + 1) % 10) === 0) update();
+});
+
+// Voz: ElevenLabs si el server la tiene; si no, o si el audio no se puede reproducir, la del sistema.
+let serverVoice = true, playing = null;
+async function speakMsg(m) {
+  spokenSeq = Math.max(spokenSeq, m.seq);
+  if (typeof m.body.text !== "string") return;
+  if (playing) { playing.pause(); playing = null; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  if (serverVoice) {
+    const r = await fetch("/rooms/" + ROOM + "/speech/" + m.seq).catch(() => null);
+    if (r && r.ok) {
+      playing = new Audio(URL.createObjectURL(await r.blob()));
+      try { await playing.play(); return; } catch { playing = null; }
+    } else if (r && r.status === 404 && (await r.json().catch(() => ({}))).error === "tts_disabled") serverVoice = false;
+  }
+  if (!("speechSynthesis" in window)) return;
+  const v = (avatars[m.from] && avatars[m.from].voice) || {}, u = new SpeechSynthesisUtterance(m.body.text);
+  if (typeof v.pitch === "number") u.pitch = v.pitch;
+  if (typeof v.rate === "number") u.rate = v.rate;
+  u.lang = typeof v.lang === "string" ? v.lang : "es-MX";
+  speechSynthesis.speak(u);
+}
+
+function go(step) {
+  const n = Math.max(0, Math.min(msgs.length - 1, idx + step));
+  if (n === idx) return;
+  idx = n; show();
+  if (voiceOn) speakMsg(msgs[idx]);
+}
+$("prev").onclick = () => go(-1);
+$("next").onclick = () => go(1);
+// El botón de voz es el gesto que el navegador pide para reproducir audio: al activarla lee el mensaje actual.
+$("say").onclick = () => {
+  voiceOn = !voiceOn;
+  $("say").setAttribute("aria-pressed", String(voiceOn));
+  $("say").textContent = voiceOn ? "🔊 Voz activa" : "🔊 Voz";
+  if (voiceOn && current()) speakMsg(current());
+  else { if (playing) playing.pause(); if ("speechSynthesis" in window) speechSynthesis.cancel(); }
+};
+// Touchpad de los lentes: izquierda y derecha cambian de mensaje. Enter lo maneja el botón con foco.
+addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+});
+$("say").focus();
+
+loadKubo().then((g) => { kubo = g; $("status").textContent = ""; update(); show(); },
+  () => { $("status").textContent = "No se pudo cargar el modelo 3D."; });
+const es = new EventSource("/rooms/" + ROOM + "/events");
+es.addEventListener("room", (m) => { data = JSON.parse(m.data); $("conn").className = "badge"; render(); });
+es.onerror = () => { $("conn").className = "badge off"; };
+</script>
+</body>
+</html>
