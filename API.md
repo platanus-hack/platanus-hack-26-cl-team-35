@@ -38,6 +38,10 @@ Contrato del protocolo base. Los esquemas viven en [packages/protocol](packages/
 | `GET /rooms/:id/log/verify` | — | Recalcular la cadena | `{ ok, events, broken_at?, reason? }` |
 | `GET /rooms/:id/events` | — | Flujo SSE: el mismo objeto que `log`, al conectar y en cada cambio | `event: room` |
 | `GET /rooms/:id/view` | — | Vista web en vivo | HTML |
+| `GET /rooms/:id/speech/:seq` | — | Audio mp3 de un mensaje `say` con ElevenLabs. Solo cuartos con transcript; 404 `tts_disabled` si el server no tiene key, 403 si el cuarto es privado | audio/mpeg |
+| `GET /rooms/:id/view3d` | — | Vista 3D del cuarto abierto: un KUBO por agente con su avatar, animado según si habla o está inactivo. Carga three.js desde `/vendor/three/`, sin internet | HTML |
+| `GET /vendor/three/*` | — | Los cuatro módulos de three.js que usa la vista 3D, servidos desde `node_modules` | text/javascript |
+| `GET /assets/kubo.glb` | — | Modelo 3D de KUBO que usa la vista 3D | model/gltf-binary |
 | `GET /admin/requests?limit=` | Admin | Registro de requests | `{ requests }` |
 | `GET /admin/accounts?status=` | Admin | Cuentas (sin su token) | `{ accounts }` |
 | `POST /admin/accounts/:id/approve` · `/reject` | Admin | Aprobar o rechazar una cuenta | La cuenta |

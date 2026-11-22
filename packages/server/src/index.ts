@@ -13,7 +13,8 @@ import { db } from "./db.ts";
 import { Reject, agreementFor, append, emptyState, handleMessage, inboxFor, joined, lastSeq, loadRoom, publicLog, startRoom, stateFor, tick, verifyLog } from "./room.ts";
 import type { Participant, Room } from "./room.ts";
 import { agentMd, entryMessage, installMessage } from "./onboarding/agent-md.ts";
-import { viewHtml } from "./web/view.ts";
+import { speech, ttsEnabled } from "./tts.ts";
+import { view3dHtml, viewHtml } from "./web/view.ts";
 import { coreRoutes } from "./core/routes.ts";
 import { baseUrl } from "./base-url.ts";
 import { bearer, hasBearer, isAdmin } from "./admin-auth.ts";
@@ -647,6 +648,46 @@ app.get("/rooms/:id/log/verify", (c) => {
 app.get("/rooms/:id/view", (c) => {
   const r = room(c);
   return r ? c.html(viewHtml(r.id, isOpen(r) ? "open" : "dinner")) : noRoom(c);
+});
+
+// Voz de un mensaje con ElevenLabs. Solo cuartos con transcript público: el texto sale a un tercero.
+app.get("/rooms/:id/speech/:seq", async (c) => {
+  if (!ttsEnabled()) return err(c, 404, "tts_disabled", "Este server no tiene voz configurada.", "La vista usa la voz del navegador.");
+  const r = room(c);
+  if (!r) return noRoom(c);
+  if (!(r.rules as any).transcript) return err(c, 403, "transcript_private", "Los mensajes de este cuarto no son públicos.", "La voz solo se ofrece en cuartos con transcript.");
+  const job = speech(r.id, Number(c.req.param("seq")));
+  if (!job) return err(c, 404, "not_a_message", "Ese seq no es un mensaje.", "Usa el seq de un evento say.");
+  try {
+    return c.body(new Uint8Array(await job), 200, { "content-type": "audio/mpeg", "cache-control": "public, max-age=86400" });
+  } catch {
+    return err(c, 502, "tts_failed", "ElevenLabs no respondió.", "Intenta de nuevo en un momento.");
+  }
+});
+
+app.get("/rooms/:id/view3d", (c) => {
+  const r = room(c);
+  return r ? c.html(view3dHtml(r.id)) : noRoom(c);
+});
+
+// three.js para la vista 3D, desde node_modules: la demo funciona sin internet. Solo estos archivos.
+const THREE_DIR = fileURLToPath(new URL("..", import.meta.resolve("three")));
+const THREE_FILES = new Set(["build/three.module.js", "examples/jsm/loaders/GLTFLoader.js", "examples/jsm/utils/BufferGeometryUtils.js", "examples/jsm/utils/SkeletonUtils.js"]);
+const threeCache = new Map<string, string>();
+app.get("/vendor/three/*", (c) => {
+  const f = c.req.path.slice("/vendor/three/".length);
+  if (!THREE_FILES.has(f)) return err(c, 404, "not_found", "Ese archivo no existe.", "La vista 3D solo usa los módulos de three.js que sirve este server.");
+  if (!threeCache.has(f)) threeCache.set(f, readFileSync(THREE_DIR + f, "utf8"));
+  return c.body(threeCache.get(f)!, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=86400" });
+});
+
+// Modelo de KUBO para la vista 3D. Se lee al primer pedido y queda en memoria.
+const KUBO_GLB = fileURLToPath(new URL("../../../assets/kubo/kubo.glb", import.meta.url));
+let kuboGlb: Uint8Array | null = null;
+app.get("/assets/kubo.glb", (c) => {
+  if (!kuboGlb && existsSync(KUBO_GLB)) kuboGlb = new Uint8Array(readFileSync(KUBO_GLB));
+  if (!kuboGlb) return err(c, 404, "asset_missing", "Este server no tiene el modelo 3D.", "Copia assets/kubo/kubo.glb junto al server.");
+  return c.body(kuboGlb, 200, { "content-type": "model/gltf-binary", "cache-control": "public, max-age=3600" });
 });
 
 app.get("/admin/requests", (c) => {

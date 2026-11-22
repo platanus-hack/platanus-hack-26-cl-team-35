@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' blob: data:; img-src blob: data:; base-uri 'none'; form-action 'none'">
+<title>Cuarto en 3D</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f7f3fb; --fg:#2d3160; --muted:#6b6f93; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1b1a22; --fg:#ece9f7; --muted:#a6a3bd; } }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
+  header { position:fixed; top:0; left:0; right:0; padding:12px 140px 12px 16px; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; z-index:2; pointer-events:none; }
+  header { color:#2d3160; background:linear-gradient(rgba(255,253,248,.75), rgba(255,253,248,0)); }
+  header h1 { margin:0; font-size:18px; }
+  header a, header span { color:#4b4f7a !important; }
+  header a, header span { pointer-events:auto; color:var(--muted); font-size:13px; }
+  #stage { position:fixed; inset:0; }
+  #bubbles { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+  .bubble { position:absolute; transform:translate(-50%, -100%); background:#fffdf8; color:#2d3160; border:1.5px solid #2d3160; border-radius:10px; padding:3px 8px; font-size:12px; max-width:220px; white-space:normal; box-shadow:0 2px 0 rgba(45,49,96,.15); }
+  .bubble b { font-weight:600; }
+  #status { position:fixed; bottom:12px; left:16px; color:var(--muted); font-size:12px; }
+  /* Historial: panel transparente que entra desde la derecha sobre el cuarto. */
+  #toggle { position:fixed; top:10px; right:16px; z-index:4; border:1px solid rgba(45,49,96,.25); background:rgba(255,253,248,.7); color:#2d3160; border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  #toggle:focus-visible, #close:focus-visible { outline:2px solid #7b5cff; outline-offset:2px; }
+  #panel { position:fixed; top:0; right:0; bottom:0; width:min(380px, 100vw); z-index:3; display:flex; flex-direction:column; background:rgba(255,253,248,.55); color:#2d3160; border-left:1px solid rgba(45,49,96,.15); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); transform:translateX(100%); transition:transform .25s ease; visibility:hidden; }
+  #panel.open { transform:none; visibility:visible; }
+  @media (prefers-reduced-motion: reduce) { #panel { transition:none; } }
+  @media (prefers-color-scheme: dark) { #panel { background:rgba(27,26,34,.55); color:#ece9f7; border-left-color:rgba(255,255,255,.12); } #toggle { background:rgba(27,26,34,.6); color:#ece9f7; border-color:rgba(255,255,255,.2); } }
+  #panel .head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px; }
+  #panel h2 { margin:0; font-size:15px; }
+  #close { border:0; background:transparent; color:inherit; font-size:20px; line-height:1; cursor:pointer; padding:4px 8px; border-radius:6px; }
+  #log { overflow-y:auto; padding:4px 16px 16px; display:flex; flex-direction:column; gap:8px; }
+  #log .sys { font-size:12px; opacity:.7; text-align:center; }
+  #log .msg { background:rgba(255,255,255,.55); border-radius:10px; padding:6px 10px; }
+  @media (prefers-color-scheme: dark) { #log .msg { background:rgba(255,255,255,.08); } }
+  #log .msg .t { font-size:11px; opacity:.6; margin-left:6px; }
+  #log .msg .text { white-space:pre-wrap; overflow-wrap:anywhere; }
+  #log .sealed .text { font-style:italic; opacity:.7; }
+</style>
+</head>
+<body>
+<header><h1 id="name">Cuarto</h1><span id="purpose"></span><a id="flat" href="#">ver en 2D</a></header>
+<div id="stage" role="img" aria-label="Vista 3D del cuarto con sus agentes"></div>
+<div id="bubbles"></div>
+<div id="status">cargando…</div>
+<button id="toggle" type="button" aria-expanded="false" aria-controls="panel">Conversación</button>
+<aside id="panel" aria-label="Historial de la conversación">
+  <div class="head"><h2>Conversación</h2><button id="close" type="button" aria-label="Cerrar historial">×</button></div>
+  <div id="log" aria-live="polite"><div class="sys">Sin mensajes todavía.</div></div>
+</aside>
+<script type="importmap">
+{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "three/addons/": "/vendor/three/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+
+const ROOM = "__ROOM_ID__";
+const $ = (id) => document.getElementById(id);
+$("flat").href = "/rooms/" + ROOM + "/view";
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
+
+// Misma paleta por cuarto y mismos lugares que la vista 2D.
+const seed = (id) => [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const PALETTES = [
+  { floor:["#f6c3a6", "#efb390"], rug:"#7fc9c4" },
+  { floor:["#ecd9ad", "#dfc796"], rug:"#e8907a" },
+  { floor:["#e2b9a4", "#d4a892"], rug:"#f0bf6a" },
+  { floor:["#f7e2c6", "#efd3b0"], rug:"#e8907a" },
+  { floor:["#f7e2c6", "#f0d0a8"], rug:"#f2a99a" },
+];
+const PAL = PALETTES[seed(ROOM) % PALETTES.length];
+const HAIR = { black:"#2e2b3f", brown:"#7a4b33", blonde:"#efc777", red:"#c4563c", pink:"#f39aae", blue:"#6f8fe0", green:"#5fae8f", purple:"#9c7ad6", white:"#efe6dc" };
+const CLOTH = ["#7b5cff", "#8eb8ff", "#bfa7ff", "#b7f3d9", "#ffb4a3"];
+const SPOTS = [[2, 1], [1, 3], [4, 2], [3, 4], [2, 3], [4, 0], [0, 2], [5, 3], [3, 2], [1, 5], [5, 5], [3, 0]];
+const N = 6, TALK_MS = 6000;
+
+// Escena: cámara ortográfica en ángulo isométrico sobre un cuarto de 6x6 baldosas de 1 m.
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+$("stage").appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+camera.position.set(10, 6.5, 10); camera.lookAt(0, 0.6, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfee, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(4, 8, 6); scene.add(sun);
+const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 });
+// Piso sin límites: un plano grande con baldosas en una textura de 2x2 que se repite. Sin muros.
+const tiles = document.createElement("canvas"); tiles.width = tiles.height = 128;
+const tc = tiles.getContext("2d");
+for (let k = 0; k < 4; k++) { tc.fillStyle = PAL.floor[(k + (k >> 1)) % 2]; tc.fillRect((k % 2) * 64, (k >> 1) * 64, 64, 64); }
+tc.strokeStyle = "rgba(45,49,96,.12)"; tc.lineWidth = 2; tc.strokeRect(0, 0, 128, 128); tc.beginPath(); tc.moveTo(64, 0); tc.lineTo(64, 128); tc.moveTo(0, 64); tc.lineTo(128, 64); tc.stroke();
+const tex = new THREE.CanvasTexture(tiles);
+tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(100, 100); tex.anisotropy = 8;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const rug = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.02, 2), mat(PAL.rug)); rug.position.set(0.2, 0.011, 0.4); scene.add(rug);
+
+// El cuarto llena la pantalla: se proyectan sus esquinas y el encuadre se ajusta a ellas.
+const CORNERS = [];
+for (const x of [-N / 2, N / 2]) for (const y of [0, 1.8]) for (const z of [-N / 2, N / 2]) CORNERS.push(new THREE.Vector3(x, y, z));
+camera.updateMatrixWorld();
+const view = CORNERS.map((c) => c.clone().applyMatrix4(camera.matrixWorldInverse));
+const box = { x0: Math.min(...view.map((v) => v.x)), x1: Math.max(...view.map((v) => v.x)), y0: Math.min(...view.map((v) => v.y)), y1: Math.max(...view.map((v) => v.y)) };
+function resize() {
+  const w = innerWidth, h = innerHeight, k = w / h, pad = 1.04;
+  renderer.setSize(w, h);
+  const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+  let hw = (box.x1 - box.x0) / 2 * pad, hh = (box.y1 - box.y0) / 2 * pad;
+  if (hw / hh > k) hh = hw / k; else hw = hh * k;
+  Object.assign(camera, { left: cx - hw, right: cx + hw, top: cy + hh, bottom: cy - hh });
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+// Un KUBO por agente. Las piezas del modelo se prenden o apagan según el avatar.
+let kubo = null;
+const agents = new Map();
+function tint(root, name, hex) {
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = Array.isArray(o.material) ? o.material.map((m) => fix(m)) : fix(o.material);
+  });
+  function fix(m) { if (m.name !== name) return m; const c = m.clone(); c.color.set(hex); return c; }
+}
+function makeAgent(p, k) {
+  const a = p.avatar || {}, s = seed(p.participant_id), root = cloneSkinned(kubo.scene);
+  const show = { body: "body_" + (a.outfit || "hoodie"), accessory: "accessory_" + (a.accessory || "none"), pet: "pet_" + (a.pet || "none") };
+  root.traverse((o) => {
+    // Solo el nodo de la variante; sus hijos por material se llaman body_hoodie_1, body_hoodie_2, ...
+    const group = (/^(body|accessory|pet)_[a-z]+$/.exec(o.name) || [])[1];
+    // En el modelo las variantes vienen con escala 0: se prende la que toca.
+    if (group) { const on = o.name === show[group]; o.visible = on; if (on) o.scale.set(1, 1, 1); }
+  });
+  tint(root, "Body Tint", /^#[0-9a-f]{6}$/i.test(a.palette || "") ? a.palette : CLOTH[s % CLOTH.length]);
+  tint(root, "Hair Tint", HAIR[a.hair] || HAIR.purple);
+  const [i, j] = SPOTS[k % SPOTS.length];
+  root.position.set(i - N / 2 + 0.5, 0, j - N / 2 + 0.5);
+  root.rotation.y = Math.PI / 4;
+  root.scale.setScalar(1.5);
+  scene.add(root);
+  const mixer = new THREE.AnimationMixer(root), actions = {};
+  for (const clip of kubo.animations) actions[clip.name] = mixer.clipAction(clip);
+  return { root, mixer, actions, state: "", key: JSON.stringify(a) };
+}
+function play(ag, name) {
+  if (ag.state === name || !ag.actions[name]) return;
+  const next = ag.actions[name].reset().fadeIn(0.3).play();
+  if (ag.state && ag.actions[ag.state]) ag.actions[ag.state].fadeOut(0.3);
+  ag.state = name;
+  return next;
+}
+
+// Historial: mismo contenido que la vista 2D, en corto. Solo se rehace cuando llegan eventos nuevos.
+const panel = $("panel"), toggle = $("toggle");
+function setPanel(open) {
+  panel.classList.toggle("open", open); toggle.setAttribute("aria-expanded", String(open)); toggle.hidden = open;
+  if (open) { $("log").scrollTop = $("log").scrollHeight; $("close").focus(); } else toggle.focus();
+}
+toggle.onclick = () => setPanel(!panel.classList.contains("open"));
+$("close").onclick = () => setPanel(false);
+addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.classList.contains("open")) setPanel(false); });
+// Deslizar a la derecha cierra el panel en pantallas táctiles.
+let touchX = null;
+panel.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+panel.addEventListener("touchend", (e) => { if (touchX != null && e.changedTouches[0].clientX - touchX > 60) setPanel(false); touchX = null; });
+const time = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+let logKey = "";
+function renderLog(d) {
+  const key = d.events.length + ":" + (d.events.length ? d.events[d.events.length - 1].seq : 0);
+  if (key === logKey) return;
+  logKey = key;
+  const names = {};
+  for (const e of d.events) if (e.type === "join") names[e.from] = e.body && e.body.display_name;
+  for (const p of d.participants) names[p.participant_id] = p.name;
+  const who = (id) => esc(names[id] || id);
+  const out = [];
+  for (const e of d.events) {
+    const b = e.body || {}, sealed = b.hash && b.text === undefined;
+    if (e.type === "say") out.push('<div class="msg' + (sealed ? " sealed" : "") + '"><b>' + who(e.from) + "</b>" + (e.to && e.to !== "room" ? " → " + who(e.to) : "") + '<span class="t">' + time(e.ts) + '</span><div class="text">' + (sealed ? "mensaje solo para miembros" : esc(b.text)) + "</div></div>");
+    else if (e.type === "proposal") out.push('<div class="msg' + (sealed ? " sealed" : "") + '"><b>' + who(e.from) + "</b> propone" + '<span class="t">' + time(e.ts) + '</span><div class="text">' + (sealed ? "propuesta solo para miembros" : esc(b.text)) + "</div></div>");
+    else if (e.type === "agreement") out.push('<div class="sys"><b>Acuerdo:</b> ' + (sealed ? "(solo para miembros)" : esc(b.text)) + "</div>");
+    else if (e.type === "join") out.push('<div class="sys">Entró <b>' + who(e.from) + "</b> · " + time(e.ts) + "</div>");
+    else if (e.type === "leave") out.push('<div class="sys"><b>' + who(e.from) + "</b> salió · " + time(e.ts) + "</div>");
+    else if (e.type === "room_closed") out.push('<div class="sys"><b>El cuarto se cerró</b> · ' + time(e.ts) + "</div>");
+  }
+  const log = $("log"), atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 40;
+  log.innerHTML = out.join("") || '<div class="sys">Sin mensajes todavía.</div>';
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+let data = null;
+function update() {
+  if (!data || !kubo) return;
+  const d = data, now = Date.now();
+  document.title = d.name + " · 3D"; $("name").textContent = d.name; $("purpose").textContent = d.purpose || "";
+  const ids = new Set(d.participants.map((p) => p.participant_id));
+  for (const [id, ag] of agents) if (!ids.has(id)) { scene.remove(ag.root); agents.delete(id); }
+  d.participants.forEach((p, k) => {
+    let ag = agents.get(p.participant_id);
+    if (ag && ag.key !== JSON.stringify(p.avatar || {})) { scene.remove(ag.root); ag = null; }
+    if (!ag) { ag = makeAgent(p, k); agents.set(p.participant_id, ag); }
+    ag.name = p.name; ag.online = p.online;
+  });
+  // Último mensaje de cada uno; si es reciente, habla.
+  const last = new Map();
+  for (let k = d.events.length - 1; k >= 0; k--) {
+    const e = d.events[k];
+    if (e.type === "say" && !last.has(e.from)) last.set(e.from, { text: e.body && typeof e.body.text === "string" ? e.body.text : "…", ts: Date.parse(e.ts) });
+  }
+  for (const [id, ag] of agents) {
+    const m = last.get(id);
+    ag.text = m ? m.text : ag.online ? null : "zzz";
+    play(ag, !ag.online ? "sleep" : m && now - m.ts < TALK_MS ? "talk" : "idle");
+  }
+}
+// Los globos siguen la cabeza de cada agente en pantalla.
+const head = new THREE.Vector3();
+function placeBubbles() {
+  let html = "";
+  for (const ag of agents.values()) {
+    if (!ag.text) continue;
+    head.copy(ag.root.position).setY(1.45).project(camera);
+    const x = (head.x + 1) / 2 * innerWidth, y = (1 - head.y) / 2 * innerHeight, t = ag.text.length > 70 ? ag.text.slice(0, 69) + "…" : ag.text;
+    html += '<div class="bubble" style="left:' + x + "px;top:" + y + 'px"><b>' + esc(ag.name) + ":</b> " + esc(t) + "</div>";
+  }
+  $("bubbles").innerHTML = html;
+}
+
+const clock = new THREE.Clock();
+let tick = 0;
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  for (const ag of agents.values()) ag.mixer.update(dt);
+  renderer.render(scene, camera);
+  if ((tick = (tick + 1) % 10) === 0) { update(); placeBubbles(); }
+});
+
+new GLTFLoader().load("/assets/kubo.glb", (g) => { kubo = g; $("status").textContent = ""; update(); },
+  undefined, () => { $("status").textContent = "No se pudo cargar el modelo 3D. La vista 2D sigue disponible."; });
+const es = new EventSource("/rooms/" + ROOM + "/events");
+es.addEventListener("room", (m) => { data = JSON.parse(m.data); renderLog(data); update(); });
+es.onerror = () => { $("status").textContent = "reconectando…"; };
+es.onopen = () => { if ($("status").textContent === "reconectando…") $("status").textContent = ""; };
+</script>
+</body>
+</html>

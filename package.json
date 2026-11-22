@@ -10,7 +10,8 @@
     "start": "npm start -w @agent-board/server",
     "build": "npm run build -w agentroom",
     "test": "npm run build && node --test packages/*/test/*.test.ts",
-    "scenario": "npm run build && node packages/bots/src/scenario.ts"
+    "scenario": "npm run build && node packages/bots/src/scenario.ts",
+    "demo": "node scripts/demo.ts"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
